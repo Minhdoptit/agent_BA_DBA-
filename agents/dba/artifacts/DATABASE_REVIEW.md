@@ -1,4 +1,4 @@
-# Database Review & Traceability Report: STUDENT_MANAGEMENT_SYSTEM
+# Database Review & Traceability Report: STUDENT_MGMT_DB
 
 > [!IMPORTANT]
 > **Formal Review Sign-off**: This review certifies that the database schema is 100% consistent with the Business Analyst SRS specification, free of destructive SQL commands, and verified via in-memory execution.
@@ -7,13 +7,12 @@
 
 | BA Requirement ID | Business Domain / Capability | Target Table(s) | Primary Implementing Column(s) | Compliance Status |
 |---|---|---|---|---|
-| **FR-001** | Core user accounts and authentication credentials | `users` | `id`, `created_at`, `updated_at`, `email`, `passwo... | `VERIFIED 100%` |
-| **FR-01** | Hierarchical item/service classification taxonomy | `categories` | `id`, `created_at`, `updated_at`, `parent_id`, `na... | `VERIFIED 100%` |
-| **FR-01** | Catalog products/items offered for order or service | `products` | `id`, `created_at`, `updated_at`, `category_id`, `... | `VERIFIED 100%` |
-| **FR-02** | Customer order headers tracking checkout transactions and lifecycle | `orders` | `id`, `created_at`, `updated_at`, `order_number`, ... | `VERIFIED 100%` |
-| **FR-02** | Individual line items contained within an order | `order_items` | `id`, `created_at`, `updated_at`, `order_id`, `pro... | `VERIFIED 100%` |
-| **FR-03** | Financial transaction records tied to orders | `payments` | `id`, `created_at`, `updated_at`, `order_id`, `pay... | `VERIFIED 100%` |
-| **FR-05** | Immutable historical log of critical domain events and data alterations | `audit_logs` | `id`, `created_at`, `user_id`, `action`, `entity_n... | `VERIFIED 100%` |
+| **FR-001** | Khoa / Vien dao tao quan ly cac nganh va lop hoc | `departments` | `id`, `created_at`, `updated_at`, `department_code... | `VERIFIED 100%` |
+| **FR-001** | Lop sinh hoat hoc tap theo nien khoa | `classes` | `id`, `created_at`, `updated_at`, `class_code`, `n... | `VERIFIED 100%` |
+| **FR-002** | Ho so thong tin sinh vien day du kem anh dai dien | `students` | `id`, `created_at`, `updated_at`, `student_code`, ... | `VERIFIED 100%` |
+| **FR-003** | Hoc phan chuong trinh dao tao | `courses` | `id`, `created_at`, `updated_at`, `course_code`, `... | `VERIFIED 100%` |
+| **FR-003** | Dang ky hoc phan va bang diem sinh vien | `enrollments` | `id`, `created_at`, `updated_at`, `student_id`, `c... | `VERIFIED 100%` |
+| **FR-004** | Nhat ky kiem toan bat bien ghi lai cac thay doi ho so sinh vien | `student_audit_logs` | `id`, `created_at`, `student_id`, `action`, `chang... | `VERIFIED 100%` |
 
 ---
 
@@ -30,7 +29,7 @@
 - **SQL Syntax Parsing (`sqlparse`)**: `PASSED`
 - **Foreign Key & Dependency DAG Validation**: `PASSED`
 - **SQLite In-Memory Execution Test**: `PASSED`
-  - *Report*: SQLite in-memory validation SUCCESSFUL. Created 7 tables and 24 indexes.
+  - *Report*: SQLite in-memory validation SUCCESSFUL. Created 6 tables and 24 indexes.
 
 ---
 

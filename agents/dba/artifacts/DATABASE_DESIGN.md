@@ -1,4 +1,4 @@
-# Database Architectural Design: STUDENT_MANAGEMENT_SYSTEM
+# Database Architectural Design: STUDENT_MGMT_DB
 
 > [!TIP]
 > **Senior Database Architect Assessment**: Production-grade relational schema optimized for high concurrency, ACID transaction consistency, and long-term scalability.

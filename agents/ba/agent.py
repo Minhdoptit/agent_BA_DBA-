@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import os
+import shutil
 import threading
 import time
 from datetime import datetime, timezone
@@ -17,6 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 
+from .tools.docx_exporter import export_markdown_to_docx
 from .tools.llm_client import GeminiClient
 from .tools.requirement_analyzer import RequirementAnalyzer
 from .tools.usecase_generator import UseCaseGenerator
@@ -38,6 +40,8 @@ class BAAgent:
     MANDATORY_ARTIFACTS = [
         "REQUIREMENTS.md",
         "SRS.md",
+        "srs.docs",
+        "SRS.docx",
         "USER_STORIES.md",
         "USE_CASES.md",
         "ACCEPTANCE_CRITERIA.md",
@@ -73,11 +77,11 @@ class BAAgent:
         base_dir = Path(__file__).resolve().parent
         self.artifact_dir = (
             artifact_dir
-            or Path(os.getenv("ARTIFACT_DIR", str(base_dir / "artifacts")))
+            or Path(os.getenv("BA_ARTIFACT_DIR") or base_dir / "artifacts")
         )
         self.workspace_dir = (
             workspace_dir
-            or Path(os.getenv("WORKSPACE_DIR", str(base_dir / "workspace")))
+            or Path(os.getenv("BA_WORKSPACE_DIR") or base_dir / "workspace")
         )
         self.artifact_dir.mkdir(parents=True, exist_ok=True)
         self.workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -200,6 +204,7 @@ class BAAgent:
         documents = {
             "REQUIREMENTS.md": requirements_md,
             "SRS.md": srs_md,
+            "srs.docs": srs_md,
             "USER_STORIES.md": user_stories_md,
             "USE_CASES.md": use_cases_md,
             "ACCEPTANCE_CRITERIA.md": acceptance_criteria_md,
@@ -215,6 +220,10 @@ class BAAgent:
             content_bytes = content.encode("utf-8")
             file_path.write_bytes(content_bytes)
 
+            # Mirror to workspace
+            workspace_file = self.workspace_dir / filename
+            workspace_file.write_bytes(content_bytes)
+
             sha256_hash = hashlib.sha256(content_bytes).hexdigest()
             artifact_records.append({
                 "name": filename,
@@ -223,6 +232,26 @@ class BAAgent:
                 "checksum": sha256_hash,
                 "lines": len(content.splitlines()),
             })
+
+        # Generate Microsoft Word (.docx) format for SRS
+        try:
+            docx_path = self.artifact_dir / "SRS.docx"
+            export_markdown_to_docx(srs_md, docx_path, title=f"SRS - {project_name}")
+            if docx_path.exists():
+                docx_bytes = docx_path.read_bytes()
+                workspace_docx = self.workspace_dir / "SRS.docx"
+                shutil.copy2(docx_path, workspace_docx)
+
+                artifact_records.append({
+                    "name": "SRS.docx",
+                    "path": str(docx_path.resolve()),
+                    "size_bytes": len(docx_bytes),
+                    "checksum": hashlib.sha256(docx_bytes).hexdigest(),
+                    "lines": len(srs_md.splitlines()),
+                })
+                logger.info("Successfully exported SRS.docx formatted Word document.")
+        except Exception as docx_err:
+            logger.warning("Failed to generate SRS.docx: %s", docx_err)
 
         # Multi-Agent Hand-off summaries
         handover_notes = {
@@ -312,7 +341,12 @@ class BAAgent:
     def list_artifacts(self) -> List[Dict[str, Any]]:
         """List all generated artifacts in the artifact directory."""
         items = []
-        for file in sorted(self.artifact_dir.glob("*.md")):
+        extensions = ["*.md", "*.docs", "*.docx"]
+        matched_files = set()
+        for ext in extensions:
+            matched_files.update(self.artifact_dir.glob(ext))
+
+        for file in sorted(matched_files, key=lambda f: f.name):
             content_bytes = file.read_bytes()
             items.append({
                 "name": file.name,
@@ -327,5 +361,14 @@ class BAAgent:
         """Read content of an artifact by filename."""
         safe_path = self.artifact_dir / Path(filename).name
         if safe_path.exists() and safe_path.is_file():
+            if safe_path.suffix.lower() == ".docx":
+                return f"[Binary Word Document: {safe_path.name}, size: {safe_path.stat().st_size} bytes]"
             return safe_path.read_text(encoding="utf-8")
+        return None
+
+    def get_artifact_bytes(self, filename: str) -> Optional[bytes]:
+        """Read raw binary bytes of an artifact by filename."""
+        safe_path = self.artifact_dir / Path(filename).name
+        if safe_path.exists() and safe_path.is_file():
+            return safe_path.read_bytes()
         return None

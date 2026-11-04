@@ -48,8 +48,8 @@ class DBAAgent:
         prompts_dir: Optional[str] = None,
     ) -> None:
         self.base_dir = Path(__file__).resolve().parent
-        self.workspace_dir = Path(workspace_dir or os.getenv("WORKSPACE_DIR", self.base_dir / "workspace"))
-        self.artifact_dir = Path(artifact_dir or os.getenv("ARTIFACT_DIR", self.base_dir / "artifacts"))
+        self.workspace_dir = Path(workspace_dir or os.getenv("DBA_WORKSPACE_DIR") or self.base_dir / "workspace")
+        self.artifact_dir = Path(artifact_dir or os.getenv("DBA_ARTIFACT_DIR") or self.base_dir / "artifacts")
         self.prompts_dir = Path(prompts_dir or self.base_dir / "prompts")
 
         self.workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -91,29 +91,192 @@ class DBAAgent:
             "fr_tags": sorted(fr_tags),
         }
 
-    def _build_model_from_requirements(self, req_info: Dict[str, Any]) -> SchemaModel:
-        """Constructs a production-grade SchemaModel based on business requirements.
-        
-        Analyzes entities, primary keys, foreign keys, normalization, and constraints.
-        """
-        raw_text = req_info["raw_text"].lower()
-        fr_tags = req_info["fr_tags"]
-        domain_name = req_info["domain_name"]
+    def _is_student_domain(self, text: str) -> bool:
+        """Determines if the requirements specify an educational/student management domain."""
+        raw = text.lower()
+        keywords = [
+            "sinh viên", "student", "học sinh", "học phần", "môn học",
+            "lớp học", "lớp", "khoa", "điểm", "avatar", "quản lý sinh viên",
+            "student_code", "departments", "classes", "students", "enrollments",
+            "giáo dục", "đào tạo", "học vụ"
+        ]
+        return any(k in raw for k in keywords)
 
-        schema = SchemaModel(
-            database_name=re.sub(r"[^\w]", "_", domain_name.lower()) or "enterprise_db",
-            description=f"Database schema for {domain_name} with complete normalization and audit trail.",
-            dialect="postgresql",
+    def _build_education_model(self, schema: SchemaModel, fr_tags: List[str]) -> None:
+        """Constructs education and student management domain tables."""
+        schema.custom_types["student_gender"] = ["MALE", "FEMALE", "OTHER"]
+        schema.custom_types["student_status"] = ["ACTIVE", "SUSPENDED", "GRADUATED", "DROPOUT"]
+        schema.custom_types["enrollment_status"] = ["IN_PROGRESS", "PASSED", "FAILED", "WITHDRAWN"]
+
+        # 1. Departments (Khoa / Viện)
+        dept_table = Table(
+            name="departments",
+            description="Khoa / Vien dao tao quan ly cac nganh va lop hoc",
+            traceability_req_ids=[fr_tags[0] if len(fr_tags) > 0 else "FR-01"],
         )
+        dept_table.columns.extend(create_standard_audit_columns())
+        dept_table.columns.extend([
+            Column(name="department_code", data_type="VARCHAR(30)", is_unique=True, is_nullable=False, comment="Ma khoa duy nhat (VD: CNTT, DTVT)"),
+            Column(name="name", data_type="VARCHAR(150)", is_nullable=False, comment="Ten day du cua khoa"),
+            Column(name="description", data_type="TEXT", is_nullable=True, comment="Mo ta chuc nang nhiem vu khoa"),
+            Column(name="is_active", data_type="BOOLEAN", default_value="TRUE", is_nullable=False, comment="Trang thai hoat dong"),
+        ])
+        schema.add_table(dept_table)
 
-        # Common Enum Types
+        # 2. Classes (Lop sinh hoat)
+        class_table = Table(
+            name="classes",
+            description="Lop sinh hoat hoc tap theo nien khoa",
+            traceability_req_ids=[fr_tags[0] if len(fr_tags) > 0 else "FR-01"],
+        )
+        class_table.columns.extend(create_standard_audit_columns())
+        class_table.columns.extend([
+            Column(name="class_code", data_type="VARCHAR(30)", is_unique=True, is_nullable=False, comment="Ma lop duy nhat (VD: D20CNTT1)"),
+            Column(name="name", data_type="VARCHAR(150)", is_nullable=False, comment="Ten lop sinh hoat"),
+            Column(name="department_id", data_type="UUID", is_nullable=False, comment="Tham chieu toi khoa quan ly"),
+            Column(name="academic_year", data_type="VARCHAR(30)", is_nullable=False, comment="Nien khoa (VD: 2020-2025)"),
+            Column(name="is_active", data_type="BOOLEAN", default_value="TRUE", is_nullable=False, comment="Trang thai lop"),
+        ])
+        class_table.add_foreign_key(
+            ForeignKey(
+                column_name="department_id",
+                target_table="departments",
+                target_column="id",
+                on_delete=ReferentialAction.RESTRICT,
+                constraint_name="fk_classes_department",
+            )
+        )
+        schema.add_table(class_table)
+
+        # 3. Students (Sinh vien - Central Entity)
+        student_table = Table(
+            name="students",
+            description="Ho so thong tin sinh vien day du kem anh dai dien",
+            traceability_req_ids=[fr_tags[1] if len(fr_tags) > 1 else "FR-02"],
+        )
+        student_table.columns.extend(create_standard_audit_columns())
+        student_table.columns.extend([
+            Column(name="student_code", data_type="VARCHAR(30)", is_unique=True, is_nullable=False, comment="Ma so sinh vien duy nhat (VD: B20DCCN001)"),
+            Column(name="full_name", data_type="VARCHAR(150)", is_nullable=False, comment="Ho va ten day du cua sinh vien"),
+            Column(name="gender", data_type="VARCHAR(10)", default_value="'OTHER'", is_nullable=False, check_constraint="gender IN ('MALE', 'FEMALE', 'OTHER')", comment="Gioi tinh sinh vien"),
+            Column(name="dob", data_type="DATE", is_nullable=True, comment="Ngay thang nam sinh"),
+            Column(name="email", data_type="VARCHAR(255)", is_unique=True, is_nullable=False, comment="Email lien he chinh thuc"),
+            Column(name="phone_number", data_type="VARCHAR(30)", is_nullable=True, comment="So dien thoai di dong"),
+            Column(name="address", data_type="TEXT", is_nullable=True, comment="Dia chi thuong tru hoac cu tru"),
+            Column(name="avatar_url", data_type="VARCHAR(500)", is_nullable=True, comment="Duong dan luu anh dai dien upload"),
+            Column(name="class_id", data_type="UUID", is_nullable=False, comment="Tham chieu toi lop sinh hoat"),
+            Column(name="status", data_type="VARCHAR(30)", default_value="'ACTIVE'", is_nullable=False, check_constraint="status IN ('ACTIVE', 'SUSPENDED', 'GRADUATED', 'DROPOUT')", comment="Trang thai hoc tap"),
+        ])
+        student_table.table_check_constraints.append(("chk_students_email_format", "email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'"))
+        student_table.add_foreign_key(
+            ForeignKey(
+                column_name="class_id",
+                target_table="classes",
+                target_column="id",
+                on_delete=ReferentialAction.RESTRICT,
+                constraint_name="fk_students_class",
+            )
+        )
+        student_table.add_index(IndexDefinition(name="idx_students_student_code", table_name="students", columns=["student_code"], method=IndexMethod.BTREE, is_unique=True, comment="Tra cuu nhanh theo ma sinh vien"))
+        student_table.add_index(IndexDefinition(name="idx_students_full_name", table_name="students", columns=["full_name"], method=IndexMethod.BTREE, comment="Tim kiem sinh vien theo ho ten"))
+        student_table.add_index(IndexDefinition(name="idx_students_class_id", table_name="students", columns=["class_id"], method=IndexMethod.BTREE, comment="Loc danh sach sinh vien theo lop"))
+        student_table.add_index(IndexDefinition(name="idx_students_email", table_name="students", columns=["email"], method=IndexMethod.BTREE, is_unique=True, comment="Tra cuu tai khoan qua email"))
+        schema.add_table(student_table)
+
+        # 4. Courses (Mon hoc / Hoc phan)
+        course_table = Table(
+            name="courses",
+            description="Hoc phan chuong trinh dao tao",
+            traceability_req_ids=[fr_tags[2] if len(fr_tags) > 2 else "FR-03"],
+        )
+        course_table.columns.extend(create_standard_audit_columns())
+        course_table.columns.extend([
+            Column(name="course_code", data_type="VARCHAR(30)", is_unique=True, is_nullable=False, comment="Ma mon hoc (VD: INT1306)"),
+            Column(name="name", data_type="VARCHAR(200)", is_nullable=False, comment="Ten mon hoc"),
+            Column(name="credits", data_type="INTEGER", default_value="3", is_nullable=False, check_constraint="credits > 0", comment="So tin chi"),
+            Column(name="department_id", data_type="UUID", is_nullable=False, comment="Khoa phu trach mon hoc"),
+        ])
+        course_table.add_foreign_key(
+            ForeignKey(
+                column_name="department_id",
+                target_table="departments",
+                target_column="id",
+                on_delete=ReferentialAction.RESTRICT,
+                constraint_name="fk_courses_department",
+            )
+        )
+        schema.add_table(course_table)
+
+        # 5. Enrollments (Dang ky hoc & Diem so)
+        enrollment_table = Table(
+            name="enrollments",
+            description="Dang ky hoc phan va bang diem sinh vien",
+            traceability_req_ids=[fr_tags[2] if len(fr_tags) > 2 else "FR-03"],
+        )
+        enrollment_table.columns.extend(create_standard_audit_columns())
+        enrollment_table.columns.extend([
+            Column(name="student_id", data_type="UUID", is_nullable=False, comment="Sinh vien tham gia hoc"),
+            Column(name="course_id", data_type="UUID", is_nullable=False, comment="Mon hoc dang ky"),
+            Column(name="semester", data_type="VARCHAR(20)", is_nullable=False, comment="Hoc ky dang ky (VD: 2026-1)"),
+            Column(name="attendance_score", data_type="NUMERIC(4, 2)", is_nullable=True, check_constraint="attendance_score >= 0 AND attendance_score <= 10", comment="Diem chuyen can"),
+            Column(name="midterm_score", data_type="NUMERIC(4, 2)", is_nullable=True, check_constraint="midterm_score >= 0 AND midterm_score <= 10", comment="Diem giua ky"),
+            Column(name="final_score", data_type="NUMERIC(4, 2)", is_nullable=True, check_constraint="final_score >= 0 AND final_score <= 10", comment="Diem thi ket thuc hoc phan"),
+            Column(name="status", data_type="VARCHAR(30)", default_value="'IN_PROGRESS'", is_nullable=False, check_constraint="status IN ('IN_PROGRESS', 'PASSED', 'FAILED', 'WITHDRAWN')", comment="Trang thai hoan thanh"),
+        ])
+        enrollment_table.add_foreign_key(
+            ForeignKey(
+                column_name="student_id",
+                target_table="students",
+                target_column="id",
+                on_delete=ReferentialAction.CASCADE,
+                constraint_name="fk_enrollments_student",
+            )
+        )
+        enrollment_table.add_foreign_key(
+            ForeignKey(
+                column_name="course_id",
+                target_table="courses",
+                target_column="id",
+                on_delete=ReferentialAction.RESTRICT,
+                constraint_name="fk_enrollments_course",
+            )
+        )
+        schema.add_table(enrollment_table)
+
+        # 6. Student Audit Logs (Nhat ky kiem toan)
+        audit_table = Table(
+            name="student_audit_logs",
+            description="Nhat ky kiem toan bat bien ghi lai cac thay doi ho so sinh vien",
+            traceability_req_ids=[fr_tags[3] if len(fr_tags) > 3 else "FR-04"],
+        )
+        audit_table.columns.extend([
+            Column(name="id", data_type="UUID", is_primary_key=True, default_value="gen_random_uuid()", comment="Surrogate primary key"),
+            Column(name="created_at", data_type="TIMESTAMPTZ", default_value="CURRENT_TIMESTAMP", is_nullable=False, comment="Thoi diem xay ra su kien"),
+            Column(name="student_id", data_type="UUID", is_nullable=True, comment="Sinh vien bi tac dong"),
+            Column(name="action", data_type="VARCHAR(50)", is_nullable=False, comment="Loai thao tac: CREATE, UPDATE, DELETE, UPLOAD_AVATAR"),
+            Column(name="changed_by", data_type="VARCHAR(100)", is_nullable=False, comment="Tai khoan thuc hien"),
+            Column(name="old_values", data_type="JSONB", is_nullable=True, comment="Gia tri truoc khi sua"),
+            Column(name="new_values", data_type="JSONB", is_nullable=True, comment="Gia tri sau khi sua"),
+            Column(name="ip_address", data_type="VARCHAR(45)", is_nullable=True, comment="IP client"),
+        ])
+        audit_table.add_foreign_key(
+            ForeignKey(
+                column_name="student_id",
+                target_table="students",
+                target_column="id",
+                on_delete=ReferentialAction.SET_NULL,
+                constraint_name="fk_audit_student",
+            )
+        )
+        schema.add_table(audit_table)
+
+    def _build_ecommerce_model(self, schema: SchemaModel, fr_tags: List[str]) -> None:
+        """Constructs generic retail / e-commerce domain tables."""
         schema.custom_types["user_role"] = ["ADMIN", "CUSTOMER", "STAFF", "MANAGER"]
         schema.custom_types["order_status"] = ["PENDING", "CONFIRMED", "PROCESSING", "SHIPPED", "DELIVERED", "CANCELLED"]
         schema.custom_types["payment_status"] = ["UNPAID", "AUTHORIZED", "PAID", "FAILED", "REFUNDED"]
 
-        # -------------------------------------------------------------
         # 1. USERS & ROLES TABLE
-        # -------------------------------------------------------------
         users_table = Table(
             name="users",
             description="Core user accounts and authentication credentials",
@@ -131,9 +294,7 @@ class DBAAgent:
         users_table.table_check_constraints.append(("chk_users_email_format", "email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$'"))
         schema.add_table(users_table)
 
-        # -------------------------------------------------------------
         # 2. CATEGORIES TABLE (Hierarchical)
-        # -------------------------------------------------------------
         cat_table = Table(
             name="categories",
             description="Hierarchical item/service classification taxonomy",
@@ -157,9 +318,7 @@ class DBAAgent:
         )
         schema.add_table(cat_table)
 
-        # -------------------------------------------------------------
         # 3. PRODUCTS / ITEMS TABLE
-        # -------------------------------------------------------------
         products_table = Table(
             name="products",
             description="Catalog products/items offered for order or service",
@@ -185,9 +344,7 @@ class DBAAgent:
         )
         schema.add_table(products_table)
 
-        # -------------------------------------------------------------
         # 4. ORDERS TABLE
-        # -------------------------------------------------------------
         orders_table = Table(
             name="orders",
             description="Customer order headers tracking checkout transactions and lifecycle",
@@ -212,9 +369,7 @@ class DBAAgent:
         )
         schema.add_table(orders_table)
 
-        # -------------------------------------------------------------
-        # 5. ORDER ITEMS TABLE (Composition with Orders)
-        # -------------------------------------------------------------
+        # 5. ORDER ITEMS TABLE
         order_items_table = Table(
             name="order_items",
             description="Individual line items contained within an order",
@@ -246,9 +401,7 @@ class DBAAgent:
         )
         schema.add_table(order_items_table)
 
-        # -------------------------------------------------------------
         # 6. PAYMENTS TABLE
-        # -------------------------------------------------------------
         payments_table = Table(
             name="payments",
             description="Financial transaction records tied to orders",
@@ -273,9 +426,7 @@ class DBAAgent:
         )
         schema.add_table(payments_table)
 
-        # -------------------------------------------------------------
         # 7. AUDIT LOGS TABLE
-        # -------------------------------------------------------------
         audit_table = Table(
             name="audit_logs",
             description="Immutable historical log of critical domain events and data alterations",
@@ -300,6 +451,91 @@ class DBAAgent:
             )
         )
         schema.add_table(audit_table)
+
+    def _generate_seed_data(self, is_student_domain: bool) -> str:
+        """Generates realistic executable INSERT statements for immediate SQL testing."""
+        if is_student_domain:
+            return (
+                "-- =============================================================================\n"
+                "-- 6. SEED DATA & INITIAL VERIFICATION FIXTURES (STUDENT MANAGEMENT)\n"
+                "-- =============================================================================\n"
+                "\n"
+                "-- 6.1 Insert Departments\n"
+                'INSERT INTO "departments" ("id", "department_code", "name", "description") VALUES\n'
+                "  ('a0000001-0000-0000-0000-000000000001', 'CNTT', 'Khoa Cong nghe Thong tin', 'Dao tao Ky su CNTT, Phan mem va Khoa hoc May tinh'),\n"
+                "  ('a0000001-0000-0000-0000-000000000002', 'DTVT', 'Khoa Dien tu Vien thong', 'Dao tao Ky su Mang may tinh va Truyen thong');\n"
+                "\n"
+                "-- 6.2 Insert Classes\n"
+                'INSERT INTO "classes" ("id", "class_code", "name", "department_id", "academic_year") VALUES\n'
+                "  ('b0000001-0000-0000-0000-000000000001', 'D20CNTT1', 'Lop Cong nghe Thong tin 1 - K20', 'a0000001-0000-0000-0000-000000000001', '2020-2025'),\n"
+                "  ('b0000001-0000-0000-0000-000000000002', 'D20CNTT2', 'Lop Cong nghe Thong tin 2 - K20', 'a0000001-0000-0000-0000-000000000001', '2020-2025'),\n"
+                "  ('b0000001-0000-0000-0000-000000000003', 'D21CNTT1', 'Lop Cong nghe Thong tin 1 - K21', 'a0000001-0000-0000-0000-000000000001', '2021-2026');\n"
+                "\n"
+                "-- 6.3 Insert Students\n"
+                'INSERT INTO "students" ("id", "student_code", "full_name", "gender", "dob", "email", "phone_number", "avatar_url", "class_id", "status") VALUES\n'
+                "  ('c0000001-0000-0000-0000-000000000001', 'B20DCCN001', 'Nguyen Van An', 'MALE', '2002-05-15', 'an.nguyen@ptit.edu.vn', '0912345678', 'uploads/avatars/an_nguyen.jpg', 'b0000001-0000-0000-0000-000000000001', 'ACTIVE'),\n"
+                "  ('c0000001-0000-0000-0000-000000000002', 'B20DCCN002', 'Tran Thi Bich', 'FEMALE', '2002-08-22', 'bich.tran@ptit.edu.vn', '0923456789', 'uploads/avatars/bich_tran.png', 'b0000001-0000-0000-0000-000000000001', 'ACTIVE'),\n"
+                "  ('c0000001-0000-0000-0000-000000000003', 'B20DCCN003', 'Le Hoang Cuong', 'MALE', '2002-11-10', 'cuong.le@ptit.edu.vn', '0934567890', 'uploads/avatars/cuong_le.jpg', 'b0000001-0000-0000-0000-000000000002', 'ACTIVE'),\n"
+                "  ('c0000001-0000-0000-0000-000000000004', 'B21DCCN101', 'Pham Minh Duc', 'MALE', '2003-01-30', 'duc.pham@ptit.edu.vn', '0945678901', 'uploads/avatars/duc_pham.png', 'b0000001-0000-0000-0000-000000000003', 'ACTIVE');\n"
+                "\n"
+                "-- 6.4 Insert Courses\n"
+                'INSERT INTO "courses" ("id", "course_code", "name", "credits", "department_id") VALUES\n'
+                "  ('d0000001-0000-0000-0000-000000000001', 'INT1306', 'Cau truc du lieu va Giai thuat', 3, 'a0000001-0000-0000-0000-000000000001'),\n"
+                "  ('d0000001-0000-0000-0000-000000000002', 'INT1340', 'Co so du lieu quan he', 3, 'a0000001-0000-0000-0000-000000000001'),\n"
+                "  ('d0000001-0000-0000-0000-000000000003', 'INT1405', 'Lap trinh mang & Kien truc huong dich vu', 3, 'a0000001-0000-0000-0000-000000000001');\n"
+                "\n"
+                "-- 6.5 Insert Enrollments & Grades\n"
+                'INSERT INTO "enrollments" ("id", "student_id", "course_id", "semester", "attendance_score", "midterm_score", "final_score", "status") VALUES\n'
+                "  ('e0000001-0000-0000-0000-000000000001', 'c0000001-0000-0000-0000-000000000001', 'd0000001-0000-0000-0000-000000000001', '2026-1', 9.5, 8.5, 9.0, 'PASSED'),\n"
+                "  ('e0000001-0000-0000-0000-000000000002', 'c0000001-0000-0000-0000-000000000001', 'd0000001-0000-0000-0000-000000000002', '2026-1', 10.0, 9.0, 8.5, 'PASSED'),\n"
+                "  ('e0000001-0000-0000-0000-000000000003', 'c0000001-0000-0000-0000-000000000002', 'd0000001-0000-0000-0000-000000000002', '2026-1', 9.0, 8.0, 8.0, 'PASSED');\n"
+                "\n"
+                "-- 6.6 Insert Audit Logs\n"
+                'INSERT INTO "student_audit_logs" ("id", "student_id", "action", "changed_by", "ip_address") VALUES\n'
+                "  ('f0000001-0000-0000-0000-000000000001', 'c0000001-0000-0000-0000-000000000001', 'CREATE', 'admin_ba_dba', '127.0.0.1'),\n"
+                "  ('f0000001-0000-0000-0000-000000000002', 'c0000001-0000-0000-0000-000000000001', 'UPLOAD_AVATAR', 'admin_ba_dba', '127.0.0.1');\n"
+            )
+        else:
+            return (
+                "-- =============================================================================\n"
+                "-- 6. SEED DATA & INITIAL VERIFICATION FIXTURES (E-COMMERCE)\n"
+                "-- =============================================================================\n"
+                "\n"
+                "-- 6.1 Insert Users\n"
+                'INSERT INTO "users" ("id", "email", "password_hash", "full_name", "role", "is_active") VALUES\n'
+                "  ('a0000001-0000-0000-0000-000000000001', 'admin@example.com', '$2b$12$e...hash', 'System Administrator', 'ADMIN', TRUE),\n"
+                "  ('a0000001-0000-0000-0000-000000000002', 'customer1@example.com', '$2b$12$e...hash', 'John Doe', 'CUSTOMER', TRUE);\n"
+                "\n"
+                "-- 6.2 Insert Categories\n"
+                'INSERT INTO "categories" ("id", "name", "slug", "description") VALUES\n'
+                "  ('b0000001-0000-0000-0000-000000000001', 'Electronics', 'electronics', 'Consumer electronics and devices');\n"
+                "\n"
+                "-- 6.3 Insert Products\n"
+                'INSERT INTO "products" ("id", "category_id", "sku", "name", "price", "stock_quantity") VALUES\n'
+                "  ('c0000001-0000-0000-0000-000000000001', 'b0000001-0000-0000-0000-000000000001', 'LAPTOP-PRO-15', 'Pro Laptop 15-inch', 1299.99, 50);\n"
+            )
+
+    def _build_model_from_requirements(self, req_info: Dict[str, Any]) -> SchemaModel:
+        """Constructs a production-grade SchemaModel based on business requirements."""
+        raw_text = req_info["raw_text"]
+        fr_tags = req_info["fr_tags"]
+        domain_name = req_info["domain_name"]
+
+        is_student = self._is_student_domain(raw_text)
+        db_name = "student_mgmt_db" if is_student else (re.sub(r"[^\w]", "_", domain_name.lower()) or "enterprise_db")
+
+        schema = SchemaModel(
+            database_name=db_name,
+            description=f"Database schema for {domain_name} with 3NF normalization, full integrity, and audit trail.",
+            dialect="postgresql",
+        )
+
+        if is_student:
+            logger.info("DBAAgent: Building education and student management data model...")
+            self._build_education_model(schema, fr_tags)
+        else:
+            logger.info("DBAAgent: Building retail / enterprise commerce data model...")
+            self._build_ecommerce_model(schema, fr_tags)
 
         # Add Recommended Indexes to all tables
         recommended_indexes = self.optimizer.recommend_indexes_for_schema(schema)
@@ -329,13 +565,12 @@ class DBAAgent:
         lines.append("")
         lines.append("| Entity Name | Storage Table | Classification | Estimated Growth (1 Year) | Retention Policy |")
         lines.append("|---|---|---|---|---|")
-        lines.append("| User Account | `users` | Core Master | 50,000 - 200,000 rows | Indefinite (Soft-delete only) |")
-        lines.append("| Category Hierarchy | `categories` | Reference Taxonomy | < 1,000 rows | Indefinite |")
-        lines.append("| Product Catalog | `products` | Master Data | 10,000 - 50,000 rows | Indefinite |")
-        lines.append("| Order Header | `orders` | Transactional | 500,000 - 2,000,000 rows | 5 Years Active; Cold Archive 10 Years |")
-        lines.append("| Order Line Item | `order_items` | Transactional (Composition) | 2,000,000 - 8,000,000 rows | Inherits Order Policy |")
-        lines.append("| Payment Transaction | `payments` | Financial Audit | 500,000 - 2,000,000 rows | 10 Years Legal Compliance |")
-        lines.append("| Audit & Activity Log | `audit_logs` | Immutable Compliance | 10,000,000+ rows | 2 Years Active; S3 Parquet 7 Years |")
+        for table in schema.tables:
+            is_audit = "audit" in table.name.lower() or "log" in table.name.lower()
+            classification = "Immutable Audit Log" if is_audit else ("Core Master" if not table.foreign_keys else "Relational / Transactional")
+            growth = "1,000,000+ rows" if is_audit else "10,000 - 100,000 rows"
+            retention = "3 Years Legal Compliance" if is_audit else "Indefinite (Soft-delete only)"
+            lines.append(f"| {table.description or table.name.title()} | `{table.name}` | {classification} | {growth} | {retention} |")
         lines.append("")
         lines.append("---")
         lines.append("")
@@ -358,9 +593,9 @@ class DBAAgent:
         lines.append("---")
         lines.append("")
         lines.append("## 4. Referential Integrity & Deletion Rules")
-        lines.append("- **Master Entities (`users`, `products`, `orders`)**: Protected by `ON DELETE RESTRICT`. Master records with active dependencies cannot be deleted directly.")
-        lines.append("- **Composition Entities (`order_items`)**: Bound to parent `orders` with `ON DELETE CASCADE`. If a transient draft order is purged, its line items are cleaned up automatically.")
-        lines.append("- **Audit Entities (`audit_logs`)**: Strictly append-only. References to deleted users are decoupled via `ON DELETE SET NULL` to preserve historical event integrity.")
+        lines.append("- **Master Entities**: Protected by `ON DELETE RESTRICT`. Master records with active dependencies cannot be deleted directly.")
+        lines.append("- **Child / Composition Entities**: Bound to parent entities with `ON DELETE CASCADE` or `RESTRICT` depending on business domain lifecycle.")
+        lines.append("- **Audit Log Entities**: Strictly append-only. References to deleted parent entities use `ON DELETE SET NULL` to preserve historical event integrity.")
 
         return "\n".join(lines)
 
@@ -490,8 +725,11 @@ class DBAAgent:
         # 3. Build schema model
         schema_model = self._build_model_from_requirements(req_info)
 
-        # 4. Generate SQL DDL
-        schema_sql = schema_model.generate_ddl(dialect="postgresql")
+        # 4. Generate SQL DDL with Seed Data
+        schema_ddl = schema_model.generate_ddl(dialect="postgresql")
+        is_student = self._is_student_domain(req_info["raw_text"])
+        seed_sql = self._generate_seed_data(is_student)
+        schema_sql = f"{schema_ddl}\n\n{seed_sql}\n"
 
         # 5. Run SQL Validation & In-memory Execution
         validation_results = self.validator.full_validation(schema_model, schema_sql)
@@ -544,6 +782,7 @@ class DBAAgent:
             "artifacts": saved_artifacts,
             "summary": {
                 "tables_count": len(schema_model.tables),
+                "total_tables": len(schema_model.tables),
                 "indexes_count": sum(len(t.indexes) for t in schema_model.tables),
                 "foreign_keys_count": sum(len(t.foreign_keys) for t in schema_model.tables),
                 "in_memory_test": validation_results["in_memory_execution"]["passed"],

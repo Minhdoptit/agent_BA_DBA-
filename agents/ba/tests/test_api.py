@@ -11,6 +11,12 @@ def client():
     return TestClient(app)
 
 
+@pytest.fixture
+def auth_headers():
+    token = os.getenv("AGENT_API_KEY", "")
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
+
 def test_health_endpoint(client):
     response = client.get("/health")
     assert response.status_code == 200
@@ -22,18 +28,18 @@ def test_health_endpoint(client):
     assert data["uptime_seconds"] >= 0
 
 
-def test_agent_endpoint(client):
-    response = client.get("/agent")
+def test_agent_endpoint(client, auth_headers):
+    response = client.get("/agent", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["agent_id"] == "ba-01"
     assert data["role"] == "BA"
     assert "capabilities" in data
     assert "REQUIREMENTS.md" in data["artifacts_produced"]
-    assert len(data["artifacts_produced"]) == 6
+    assert len(data["artifacts_produced"]) >= 6
 
 
-def test_create_task_endpoint(client):
+def test_create_task_endpoint(client, auth_headers):
     payload = {
         "task_id": "api-task-001",
         "project_name": "Warehouse Inventory Management",
@@ -46,44 +52,44 @@ def test_create_task_endpoint(client):
         ),
     }
 
-    response = client.post("/tasks", json=payload)
+    response = client.post("/tasks", json=payload, headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "completed"
     assert data["task_id"] == "api-task-001"
-    assert len(data["artifacts"]) == 6
+    assert len(data["artifacts"]) >= 6
     assert "assumptions" in data
     assert "clarification_questions" in data
     assert "handover_notes" in data
 
 
-def test_list_and_get_artifacts(client):
+def test_list_and_get_artifacts(client, auth_headers):
     # First list artifacts
-    response = client.get("/artifacts")
+    response = client.get("/artifacts", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert "artifacts" in data
     assert data["count"] >= 6
 
     # Download one artifact
-    res_art = client.get("/artifacts/REQUIREMENTS.md")
+    res_art = client.get("/artifacts/REQUIREMENTS.md", headers=auth_headers)
     assert res_art.status_code == 200
     assert "text/markdown" in res_art.headers.get("content-type", "")
     assert len(res_art.text) > 100
 
     # Non-existent artifact
-    res_404 = client.get("/artifacts/UNKNOWN_FILE.md")
+    res_404 = client.get("/artifacts/UNKNOWN_FILE.md", headers=auth_headers)
     assert res_404.status_code == 404
 
 
-def test_inbox_upload_endpoint(client):
+def test_inbox_upload_endpoint(client, auth_headers):
     payload = {
         "filename": "project_brief.md",
         "content": "# Brief from PM\nPlease design the requirements for the system.",
         "source_agent": "pm-01",
         "artifact_type": "BRIEF",
     }
-    response = client.post("/artifacts/inbox", json=payload)
+    response = client.post("/artifacts/inbox", json=payload, headers=auth_headers)
     assert response.status_code == 201
     data = response.json()
     assert data["status"] == "received"

@@ -1,4 +1,4 @@
-# Database Indexing Strategy: STUDENT_MANAGEMENT_SYSTEM
+# Database Indexing Strategy: STUDENT_MGMT_DB
 
 > [!IMPORTANT]
 > **Senior DBA Index Governance Policy**: Every index represents a trade-off between read acceleration and write overhead (INSERT/UPDATE/DELETE page maintenance and WAL volume). All indexes documented below are strictly justified by access paths.
@@ -15,18 +15,19 @@
 
 | Target Table | Index Name | Columns Indexed | Method | Partial Condition (WHERE) | Architectural Rationale |
 |---|---|---|---|---|---|
-| `categories` | `idx_categories_parent_id` | `parent_id` | `BTREE` | *Unconditional* | Accelerates JOINs on foreign key parent_id -> categories.id |
-| `products` | `idx_products_category_id` | `category_id` | `BTREE` | *Unconditional* | Accelerates JOINs on foreign key category_id -> categories.id |
-| `products` | `idx_products_metadata_gin` | `metadata` | `GIN` | *Unconditional* | GIN index for arbitrary key-value search within metadata JSON payload |
-| `orders` | `idx_orders_user_id` | `user_id` | `BTREE` | *Unconditional* | Accelerates JOINs on foreign key user_id -> users.id |
-| `orders` | `idx_orders_active_status` | `status` | `BTREE` | `"deleted_at" IS NULL` | Partial index for active non-deleted records filtering by status |
-| `order_items` | `idx_order_items_order_id` | `order_id` | `BTREE` | *Unconditional* | Accelerates JOINs on foreign key order_id -> orders.id |
-| `order_items` | `idx_order_items_product_id` | `product_id` | `BTREE` | *Unconditional* | Accelerates JOINs on foreign key product_id -> products.id |
-| `payments` | `idx_payments_order_id` | `order_id` | `BTREE` | *Unconditional* | Accelerates JOINs on foreign key order_id -> orders.id |
-| `payments` | `idx_payments_active_status` | `status` | `BTREE` | `"deleted_at" IS NULL` | Partial index for active non-deleted records filtering by status |
-| `payments` | `idx_payments_gateway_payload_gin` | `gateway_payload` | `GIN` | *Unconditional* | GIN index for arbitrary key-value search within gateway_payload JSON payload |
-| `audit_logs` | `idx_audit_logs_user_id` | `user_id` | `BTREE` | *Unconditional* | Accelerates JOINs on foreign key user_id -> users.id |
-| `audit_logs` | `idx_audit_logs_changes_gin` | `changes` | `GIN` | *Unconditional* | GIN index for arbitrary key-value search within changes JSON payload |
+| `classes` | `idx_classes_department_id` | `department_id` | `BTREE` | *Unconditional* | Accelerates JOINs on foreign key department_id -> departments.id |
+| `students` | `idx_students_student_code` | `student_code` | `BTREE` | *Unconditional* | Tra cuu nhanh theo ma sinh vien |
+| `students` | `idx_students_full_name` | `full_name` | `BTREE` | *Unconditional* | Tim kiem sinh vien theo ho ten |
+| `students` | `idx_students_class_id` | `class_id` | `BTREE` | *Unconditional* | Loc danh sach sinh vien theo lop |
+| `students` | `idx_students_email` | `email` | `BTREE` | *Unconditional* | Tra cuu tai khoan qua email |
+| `students` | `idx_students_active_status` | `status` | `BTREE` | `"deleted_at" IS NULL` | Partial index for active non-deleted records filtering by status |
+| `courses` | `idx_courses_department_id` | `department_id` | `BTREE` | *Unconditional* | Accelerates JOINs on foreign key department_id -> departments.id |
+| `enrollments` | `idx_enrollments_student_id` | `student_id` | `BTREE` | *Unconditional* | Accelerates JOINs on foreign key student_id -> students.id |
+| `enrollments` | `idx_enrollments_course_id` | `course_id` | `BTREE` | *Unconditional* | Accelerates JOINs on foreign key course_id -> courses.id |
+| `enrollments` | `idx_enrollments_active_status` | `status` | `BTREE` | `"deleted_at" IS NULL` | Partial index for active non-deleted records filtering by status |
+| `student_audit_logs` | `idx_student_audit_logs_student_id` | `student_id` | `BTREE` | *Unconditional* | Accelerates JOINs on foreign key student_id -> students.id |
+| `student_audit_logs` | `idx_student_audit_logs_old_values_gin` | `old_values` | `GIN` | *Unconditional* | GIN index for arbitrary key-value search within old_values JSON payload |
+| `student_audit_logs` | `idx_student_audit_logs_new_values_gin` | `new_values` | `GIN` | *Unconditional* | GIN index for arbitrary key-value search within new_values JSON payload |
 
 ---
 

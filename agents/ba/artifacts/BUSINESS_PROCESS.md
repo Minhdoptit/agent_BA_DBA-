@@ -1,4 +1,4 @@
-# BUSINESS PROCESS & WORKFLOW MODEL - STUDENT MANAGEMENT SYSTEM
+# BUSINESS PROCESS & WORKFLOW MODEL - SMART E-COMMERCE ORDER & INVENTORY SYSTEM
 
 > **Standard**: BPMN / Workflow Modeling Standards  
 > **Agent ID**: `ba-01` | **Role**: Business Analyst
@@ -9,14 +9,14 @@
 This document formalizes the operational workflows, cross-functional responsibilities, and decision logic.
 It guides the System Architect (`sa-01`) for orchestration design and Quality Assurance (`tester-01`) for end-to-end integration tests.
 
-## 2. Process Specification: End-to-End Core Operations Workflow for Student Management System (`BP-001`)
-**Overview**: Comprehensive lifecycle workflow governing business transactions initiated by stakeholders in Student Management System.
+## 2. Process Specification: End-to-End Core Operations Workflow for Smart E-Commerce Order & Inventory System (`BP-001`)
+**Overview**: Comprehensive lifecycle workflow governing business transactions initiated by stakeholders in Smart E-Commerce Order & Inventory System.
 
 ### 2.1 Process Participants & RACI Assignment
 
 | Participant Role | Swimlane Role | Interaction Scope |
 |:---|:---:|:---|
-| **End User** | Core Participant | Initiates, executes, or audits process milestones |
+| **Customer** | Core Participant | Initiates, executes, or audits process milestones |
 | **System Administrator** | Core Participant | Initiates, executes, or audits process milestones |
 | **System Core API** | Core Participant | Initiates, executes, or audits process milestones |
 | **Business Rule Engine** | Core Participant | Initiates, executes, or audits process milestones |
@@ -25,7 +25,7 @@ It guides the System Architect (`sa-01`) for orchestration design and Quality As
 
 | Step # | Responsible Role | Action Performed | Expected Deliverable / Output |
 |:---:|:---|:---|:---|
-| 1 | **End User** | Submits operation request via interface with business data | `Encrypted HTTP Request` |
+| 1 | **Customer** | Submits operation request via interface with business data | `Encrypted HTTP Request` |
 | 2 | **System Core API** | Performs authentication, rate-limiting, and schema validation | `Validated Domain Payload` |
 | 3 | **Business Rule Engine** | Executes domain integrity constraints and state transition | `Domain Event` |
 | 4 | **System Administrator** | Monitors aggregated transaction dashboard and handles escalations | `Audit Review` |
@@ -38,7 +38,7 @@ It guides the System Architect (`sa-01`) for orchestration design and Quality As
 ### 2.4 Visual Workflow Flowchart (Mermaid)
 ```mermaid
 flowchart TD
-  Start(["Start: Initiated by End User"]) --> Step1["Step 1: Input Parameters & Form Submission"]
+  Start(["Start: Initiated by Customer"]) --> Step1["Step 1: Input Parameters & Form Submission"]
   Step1 --> Validate{"Step 2: Server-side Validation"}
   Validate -- "Invalid" --> HandleErr["Display Contextual Validation Errors"]
   HandleErr --> Step1
@@ -52,7 +52,7 @@ flowchart TD
   ExternalCheck -- "No" --> CommitState
   CommitState --> Audit["Log Immutable Audit Trail"]
   Audit --> DispatchNotif["Dispatch Status Notification"]
-  DispatchNotif --> Success(["End: Success Completed for End User"])
+  DispatchNotif --> Success(["End: Success Completed for Customer"])
 
 ```
 

@@ -1,105 +1,93 @@
-# Entity-Relationship Diagram (ERD): STUDENT_MANAGEMENT_SYSTEM
+# Entity-Relationship Diagram (ERD): STUDENT_MGMT_DB
 
 > [!NOTE]
-> **Database Architecture**: student_management_system | Dialect: POSTGRESQL 16+ | Designed by: DBA AI Agent (`dba-01`)
+> **Database Architecture**: student_mgmt_db | Dialect: POSTGRESQL 16+ | Designed by: DBA AI Agent (`dba-01`)
 
 ## 1. Visual ER Diagram
 
 ```mermaid
 erDiagram
-    CATEGORIES ||--o{ CATEGORIES : "parent_id"
-    CATEGORIES ||--|{ PRODUCTS : "category_id"
-    USERS ||--|{ ORDERS : "user_id"
-    ORDERS ||--|{ ORDER_ITEMS : "order_id"
-    PRODUCTS ||--|{ ORDER_ITEMS : "product_id"
-    ORDERS ||--|{ PAYMENTS : "order_id"
-    USERS ||--o{ AUDIT_LOGS : "user_id"
+    DEPARTMENTS ||--|{ CLASSES : "department_id"
+    CLASSES ||--|{ STUDENTS : "class_id"
+    DEPARTMENTS ||--|{ COURSES : "department_id"
+    STUDENTS ||--|{ ENROLLMENTS : "student_id"
+    COURSES ||--|{ ENROLLMENTS : "course_id"
+    STUDENTS ||--o{ STUDENT_AUDIT_LOGS : "student_id"
 
-    USERS {
+    DEPARTMENTS {
         uuid id PK "Unique surrogate primary key (UUIDv4/v7)"
         timestamptz created_at "Timestamp when record was created"
         timestamptz updated_at "Timestamp when record was last updated"
         timestamptz deleted_at "Soft-delete timestamp; NULL indicates active record"
         integer version "Optimistic locking version counter"
-        varchar email UK "User primary email address"
-        varchar password_hash "Argon2/Bcrypt hashed password"
-        varchar full_name "Full display name"
-        varchar phone_number "E.164 formatted contact phone number"
-        varchar role "Security RBAC role"
-        boolean is_active "Account active status flag"
+        varchar department_code UK "Ma khoa duy nhat (VD: CNTT, DTVT)"
+        varchar name "Ten day du cua khoa"
+        text description "Mo ta chuc nang nhiem vu khoa"
+        boolean is_active "Trang thai hoat dong"
     }
-    CATEGORIES {
+    CLASSES {
         uuid id PK "Unique surrogate primary key (UUIDv4/v7)"
         timestamptz created_at "Timestamp when record was created"
         timestamptz updated_at "Timestamp when record was last updated"
         timestamptz deleted_at "Soft-delete timestamp; NULL indicates active record"
         integer version "Optimistic locking version counter"
-        uuid parent_id FK "Self-referencing parent category for nesting"
-        varchar name "Category display name"
-        varchar slug UK "URL-friendly identifier slug"
-        text description "Category description"
+        varchar class_code UK "Ma lop duy nhat (VD: D20CNTT1)"
+        varchar name "Ten lop sinh hoat"
+        uuid department_id FK "Tham chieu toi khoa quan ly"
+        varchar academic_year "Nien khoa (VD: 2020-2025)"
+        boolean is_active "Trang thai lop"
     }
-    PRODUCTS {
+    STUDENTS {
         uuid id PK "Unique surrogate primary key (UUIDv4/v7)"
         timestamptz created_at "Timestamp when record was created"
         timestamptz updated_at "Timestamp when record was last updated"
         timestamptz deleted_at "Soft-delete timestamp; NULL indicates active record"
         integer version "Optimistic locking version counter"
-        uuid category_id FK "Foreign key to primary category"
-        varchar sku UK "Stock Keeping Unit / Unique product code"
-        varchar name "Product title"
-        text description "Product detailed specifications"
-        numeric price "Current unit price in default currency"
-        integer stock_quantity "Available physical inventory quantity"
-        jsonb metadata "Extensible dynamic attributes (dimensions, colors, specs)"
+        varchar student_code UK "Ma so sinh vien duy nhat (VD: B20DCCN001)"
+        varchar full_name "Ho va ten day du cua sinh vien"
+        varchar gender "Gioi tinh sinh vien"
+        date dob "Ngay thang nam sinh"
+        varchar email UK "Email lien he chinh thuc"
+        varchar phone_number "So dien thoai di dong"
+        text address "Dia chi thuong tru hoac cu tru"
+        varchar avatar_url "Duong dan luu anh dai dien upload"
+        uuid class_id FK "Tham chieu toi lop sinh hoat"
+        varchar status "Trang thai hoc tap"
     }
-    ORDERS {
+    COURSES {
         uuid id PK "Unique surrogate primary key (UUIDv4/v7)"
         timestamptz created_at "Timestamp when record was created"
         timestamptz updated_at "Timestamp when record was last updated"
         timestamptz deleted_at "Soft-delete timestamp; NULL indicates active record"
         integer version "Optimistic locking version counter"
-        varchar order_number UK "Human-readable unique invoice/order number"
-        uuid user_id FK "Foreign key to user who placed the order"
-        varchar status "Current order state"
-        numeric total_amount "Final calculated total payable amount"
-        text shipping_address "Physical shipping destination details"
-        text notes "Customer or fulfillment instructions"
+        varchar course_code UK "Ma mon hoc (VD: INT1306)"
+        varchar name "Ten mon hoc"
+        integer credits "So tin chi"
+        uuid department_id FK "Khoa phu trach mon hoc"
     }
-    ORDER_ITEMS {
+    ENROLLMENTS {
         uuid id PK "Unique surrogate primary key (UUIDv4/v7)"
         timestamptz created_at "Timestamp when record was created"
         timestamptz updated_at "Timestamp when record was last updated"
         timestamptz deleted_at "Soft-delete timestamp; NULL indicates active record"
         integer version "Optimistic locking version counter"
-        uuid order_id FK "Parent order reference"
-        uuid product_id FK "Referenced catalog product"
-        numeric unit_price "Historical unit price snapshot at time of purchase"
-        integer quantity "Purchased unit count"
-        numeric subtotal "Calculated line item subtotal (quantity * unit_price)"
+        uuid student_id FK "Sinh vien tham gia hoc"
+        uuid course_id FK "Mon hoc dang ky"
+        varchar semester "Hoc ky dang ky (VD: 2026-1)"
+        numeric attendance_score "Diem chuyen can"
+        numeric midterm_score "Diem giua ky"
+        numeric final_score "Diem thi ket thuc hoc phan"
+        varchar status "Trang thai hoan thanh"
     }
-    PAYMENTS {
-        uuid id PK "Unique surrogate primary key (UUIDv4/v7)"
-        timestamptz created_at "Timestamp when record was created"
-        timestamptz updated_at "Timestamp when record was last updated"
-        timestamptz deleted_at "Soft-delete timestamp; NULL indicates active record"
-        integer version "Optimistic locking version counter"
-        uuid order_id FK "Associated order"
-        varchar payment_reference UK "External payment gateway transaction reference"
-        varchar payment_method "Method: CREDIT_CARD, BANK_TRANSFER, VNPAY, MOMO"
-        numeric amount "Transacted monetary amount"
-        varchar status "Gateway payment state"
-        jsonb gateway_payload "Raw webhook/callback payload for audit trail"
-    }
-    AUDIT_LOGS {
+    STUDENT_AUDIT_LOGS {
         uuid id PK "Surrogate primary key"
-        timestamptz created_at "Event occurrence timestamp"
-        uuid user_id FK "Actor who triggered the event"
-        varchar action "Action type: INSERT, UPDATE, DELETE, LOGIN, REFUND"
-        varchar entity_name "Target entity name"
-        varchar entity_id "Target entity identifier"
-        jsonb changes "State change diff (old vs new values)"
-        varchar ip_address "Client IP address"
+        timestamptz created_at "Thoi diem xay ra su kien"
+        uuid student_id FK "Sinh vien bi tac dong"
+        varchar action "Loai thao tac: CREATE, UPDATE, DELETE, UPLOAD_AVATAR"
+        varchar changed_by "Tai khoan thuc hien"
+        jsonb old_values "Gia tri truoc khi sua"
+        jsonb new_values "Gia tri sau khi sua"
+        varchar ip_address "IP client"
     }
 ```
 
@@ -109,13 +97,12 @@ erDiagram
 
 | Entity / Table Name | Primary Key | Description | Traceability / BA Requirement |
 |---|---|---|---|
-| `users` | `id` | Core user accounts and authentication credentials | FR-001 |
-| `categories` | `id` | Hierarchical item/service classification taxonomy | FR-01 |
-| `products` | `id` | Catalog products/items offered for order or service | FR-01 |
-| `orders` | `id` | Customer order headers tracking checkout transactions and lifecycle | FR-02 |
-| `order_items` | `id` | Individual line items contained within an order | FR-02 |
-| `payments` | `id` | Financial transaction records tied to orders | FR-03 |
-| `audit_logs` | `id` | Immutable historical log of critical domain events and data alterations | FR-05 |
+| `departments` | `id` | Khoa / Vien dao tao quan ly cac nganh va lop hoc | FR-001 |
+| `classes` | `id` | Lop sinh hoat hoc tap theo nien khoa | FR-001 |
+| `students` | `id` | Ho so thong tin sinh vien day du kem anh dai dien | FR-002 |
+| `courses` | `id` | Hoc phan chuong trinh dao tao | FR-003 |
+| `enrollments` | `id` | Dang ky hoc phan va bang diem sinh vien | FR-003 |
+| `student_audit_logs` | `id` | Nhat ky kiem toan bat bien ghi lai cac thay doi ho so sinh vien | FR-004 |
 
 ---
 
@@ -123,13 +110,12 @@ erDiagram
 
 | Parent Entity | Child Entity | Foreign Key Column | Cardinality | ON DELETE Action | Business Semantics |
 |---|---|---|---|---|---|
-| `categories` | `categories` | `parent_id` -> `id` | `1 : 0..N` | `SET NULL` | Child `categories` belongs to parent `categories` |
-| `categories` | `products` | `category_id` -> `id` | `1 : 1..N` | `RESTRICT` | Child `products` belongs to parent `categories` |
-| `users` | `orders` | `user_id` -> `id` | `1 : 1..N` | `RESTRICT` | Child `orders` belongs to parent `users` |
-| `orders` | `order_items` | `order_id` -> `id` | `1 : 1..N` | `CASCADE` | Child `order_items` belongs to parent `orders` |
-| `products` | `order_items` | `product_id` -> `id` | `1 : 1..N` | `RESTRICT` | Child `order_items` belongs to parent `products` |
-| `orders` | `payments` | `order_id` -> `id` | `1 : 1..N` | `RESTRICT` | Child `payments` belongs to parent `orders` |
-| `users` | `audit_logs` | `user_id` -> `id` | `1 : 0..N` | `SET NULL` | Child `audit_logs` belongs to parent `users` |
+| `departments` | `classes` | `department_id` -> `id` | `1 : 1..N` | `RESTRICT` | Child `classes` belongs to parent `departments` |
+| `classes` | `students` | `class_id` -> `id` | `1 : 1..N` | `RESTRICT` | Child `students` belongs to parent `classes` |
+| `departments` | `courses` | `department_id` -> `id` | `1 : 1..N` | `RESTRICT` | Child `courses` belongs to parent `departments` |
+| `students` | `enrollments` | `student_id` -> `id` | `1 : 1..N` | `CASCADE` | Child `enrollments` belongs to parent `students` |
+| `courses` | `enrollments` | `course_id` -> `id` | `1 : 1..N` | `RESTRICT` | Child `enrollments` belongs to parent `courses` |
+| `students` | `student_audit_logs` | `student_id` -> `id` | `1 : 0..N` | `SET NULL` | Child `student_audit_logs` belongs to parent `students` |
 
 ---
 

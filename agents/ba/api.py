@@ -348,15 +348,30 @@ def list_artifacts(_auth: bool = Depends(verify_token)) -> Dict[str, Any]:
 @app.get("/artifacts/{filename}", tags=["Artifact Management"])
 def get_artifact(filename: str, _auth: bool = Depends(verify_token)) -> Response:
     """Retrieve content of a specific artifact file."""
+    safe_name = Path(filename).name
+    if safe_name.lower().endswith(".docx"):
+        docx_bytes = ba_agent.get_artifact_bytes(safe_name)
+        if docx_bytes is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Artifact '{filename}' not found.",
+            )
+        return Response(
+            content=docx_bytes,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+        )
+
     content = ba_agent.get_artifact_content(filename)
     if content is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Artifact '{filename}' not found.",
         )
+    media_type = "text/plain; charset=utf-8" if safe_name.lower().endswith(".docs") else "text/markdown; charset=utf-8"
     return Response(
         content=content,
-        media_type="text/markdown; charset=utf-8",
+        media_type=media_type,
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
 

@@ -31,15 +31,14 @@ from pydantic import BaseModel, Field
 from .agent import DBAAgent
 from .logger import setup_logger
 
-# Load environment variables
-load_dotenv()
-
 BASE_DIR = Path(__file__).resolve().parent
+# Load environment variables with local agent directory override
+load_dotenv(BASE_DIR / ".env", override=True)
 LOGS_DIR = BASE_DIR / "logs"
 logger = setup_logger(agent_id="dba-01", log_dir=LOGS_DIR, log_filename="agent_dba.log")
 
-AGENT_ID = os.getenv("AGENT_ID", "dba-01")
-AGENT_ROLE = os.getenv("AGENT_ROLE", "DBA")
+AGENT_ID = os.getenv("DBA_AGENT_ID", "dba-01")
+AGENT_ROLE = os.getenv("DBA_AGENT_ROLE", "DBA")
 PORT = int(os.getenv("PORT", "8004"))
 HOST = os.getenv("HOST", "0.0.0.0")
 
