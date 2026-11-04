@@ -59,3 +59,9 @@ tmp/
 
 # Pytest & Testing
 .pytest_cache/
+
+# Microsoft Office temporary lock files
+~$*
+
+# Received inbox files from other agents (transient/runtime)
+agents/*/artifacts/inbox/

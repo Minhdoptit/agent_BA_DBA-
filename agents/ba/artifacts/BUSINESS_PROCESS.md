@@ -1,4 +1,4 @@
-# BUSINESS PROCESS & WORKFLOW MODEL - SMART E-COMMERCE ORDER & INVENTORY SYSTEM
+# BUSINESS PROCESS & WORKFLOW MODEL - WAREHOUSE INVENTORY MANAGEMENT
 
 > **Standard**: BPMN / Workflow Modeling Standards  
 > **Agent ID**: `ba-01` | **Role**: Business Analyst
@@ -9,8 +9,8 @@
 This document formalizes the operational workflows, cross-functional responsibilities, and decision logic.
 It guides the System Architect (`sa-01`) for orchestration design and Quality Assurance (`tester-01`) for end-to-end integration tests.
 
-## 2. Process Specification: End-to-End Core Operations Workflow for Smart E-Commerce Order & Inventory System (`BP-001`)
-**Overview**: Comprehensive lifecycle workflow governing business transactions initiated by stakeholders in Smart E-Commerce Order & Inventory System.
+## 2. Process Specification: End-to-End Core Operations Workflow for Warehouse Inventory Management (`BP-001`)
+**Overview**: Comprehensive lifecycle workflow governing business transactions initiated by stakeholders in Warehouse Inventory Management.
 
 ### 2.1 Process Participants & RACI Assignment
 

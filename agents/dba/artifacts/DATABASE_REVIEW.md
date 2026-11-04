@@ -7,12 +7,12 @@
 
 | BA Requirement ID | Business Domain / Capability | Target Table(s) | Primary Implementing Column(s) | Compliance Status |
 |---|---|---|---|---|
-| **FR-001** | Khoa / Vien dao tao quan ly cac nganh va lop hoc | `departments` | `id`, `created_at`, `updated_at`, `department_code... | `VERIFIED 100%` |
-| **FR-001** | Lop sinh hoat hoc tap theo nien khoa | `classes` | `id`, `created_at`, `updated_at`, `class_code`, `n... | `VERIFIED 100%` |
-| **FR-002** | Ho so thong tin sinh vien day du kem anh dai dien | `students` | `id`, `created_at`, `updated_at`, `student_code`, ... | `VERIFIED 100%` |
-| **FR-003** | Hoc phan chuong trinh dao tao | `courses` | `id`, `created_at`, `updated_at`, `course_code`, `... | `VERIFIED 100%` |
-| **FR-003** | Dang ky hoc phan va bang diem sinh vien | `enrollments` | `id`, `created_at`, `updated_at`, `student_id`, `c... | `VERIFIED 100%` |
-| **FR-004** | Nhat ky kiem toan bat bien ghi lai cac thay doi ho so sinh vien | `student_audit_logs` | `id`, `created_at`, `student_id`, `action`, `chang... | `VERIFIED 100%` |
+| **FR-01** | Khoa / Vien dao tao quan ly cac nganh va lop hoc | `departments` | `id`, `created_at`, `updated_at`, `department_code... | `VERIFIED 100%` |
+| **FR-01** | Lop sinh hoat hoc tap theo nien khoa | `classes` | `id`, `created_at`, `updated_at`, `class_code`, `n... | `VERIFIED 100%` |
+| **FR-02** | Ho so thong tin sinh vien day du kem anh dai dien | `students` | `id`, `created_at`, `updated_at`, `student_code`, ... | `VERIFIED 100%` |
+| **FR-03** | Hoc phan chuong trinh dao tao | `courses` | `id`, `created_at`, `updated_at`, `course_code`, `... | `VERIFIED 100%` |
+| **FR-03** | Dang ky hoc phan va bang diem sinh vien | `enrollments` | `id`, `created_at`, `updated_at`, `student_id`, `c... | `VERIFIED 100%` |
+| **FR-04** | Nhat ky kiem toan bat bien ghi lai cac thay doi ho so sinh vien | `student_audit_logs` | `id`, `created_at`, `student_id`, `action`, `chang... | `VERIFIED 100%` |
 
 ---
 

@@ -1,5 +1,5 @@
 # SOFTWARE REQUIREMENTS SPECIFICATION (SRS) - IEEE 830 STANDARD
-## Dự án: Smart E-Commerce Order & Inventory System
+## Dự án: Warehouse Inventory Management
 
 > **Tiêu chuẩn áp dụng**: IEEE 830-1998 / ISO/IEC/IEEE 29148:2018  
 > **Tác giả (Author)**: Business Analyst AI Agent (`ba-01`)  
@@ -10,7 +10,7 @@
 
 ## 1. Introduction (Giới thiệu tổng quan)
 ### 1.1 Purpose (Mục đích tài liệu)
-Tài liệu Đặc tả Yêu cầu Phần mềm (SRS) này thiết lập đầy đủ các yêu cầu chức năng (Functional Requirements), yêu cầu phi chức năng (Non-Functional Requirements), các kịch bản tương tác Use Case, sơ đồ tuần tự (Sequence Diagrams) và quy trình nghiệp vụ cho hệ thống **Smart E-Commerce Order & Inventory System**.
+Tài liệu Đặc tả Yêu cầu Phần mềm (SRS) này thiết lập đầy đủ các yêu cầu chức năng (Functional Requirements), yêu cầu phi chức năng (Non-Functional Requirements), các kịch bản tương tác Use Case, sơ đồ tuần tự (Sequence Diagrams) và quy trình nghiệp vụ cho hệ thống **Warehouse Inventory Management**.
 Tài liệu này là căn cứ pháp lý và kỹ thuật chuẩn mực phục vụ trực tiếp cho việc:
 - **DBA Agent (`dba-01`)**: Thiết kế mô hình CSDL quan hệ chuẩn 3NF và sinh mã nguồn DDL `schema.sql`.
 - **Developer Agent (`dev-01`)**: Lập trình cài đặt các API endpoint và giao diện ứng dụng web.
@@ -22,18 +22,18 @@ Tài liệu này là căn cứ pháp lý và kỹ thuật chuẩn mực phục v
 - Thuật ngữ chuẩn tuân theo RFC 2119: **BẮT BUỘC (SHALL/MUST)**, **KHUYẾN NGHỊ (SHOULD)**.
 
 ### 1.3 Product Scope (Phạm vi dự án)
-Tài liệu đặc tả yêu cầu nghiệp vụ phần mềm cho Smart E-Commerce Order & Inventory System. Bao gồm 6 yêu cầu chức năng cốt lõi (MoSCoW), 5 chỉ số phi chức năng chuẩn ISO 25010, sơ đồ tuần tự (Sequence Diagrams), sơ đồ quy trình hoạt động, và các kịch bản Use Case chi tiết.
+Tài liệu đặc tả yêu cầu nghiệp vụ phần mềm cho Warehouse Inventory Management. Bao gồm 9 yêu cầu chức năng cốt lõi (MoSCoW), 5 chỉ số phi chức năng chuẩn ISO 25010, sơ đồ tuần tự (Sequence Diagrams), sơ đồ quy trình hoạt động, và các kịch bản Use Case chi tiết.
 
 ---
 
 ## 2. Overall Description (Mô tả tổng quan hệ thống)
 ### 2.1 Product Perspective (Bối cảnh hệ thống)
-Hệ thống **Smart E-Commerce Order & Inventory System** được thiết kế theo kiến trúc Microservices / Web Application hiện đại, phân tầng rành mạch giữa Giao diện (Presentation Layer), Tầng xử lý nghiệp vụ (Business Service Layer) và Tầng lưu trữ CSDL (Data Persistence Layer).
+Hệ thống **Warehouse Inventory Management** được thiết kế theo kiến trúc Microservices / Web Application hiện đại, phân tầng rành mạch giữa Giao diện (Presentation Layer), Tầng xử lý nghiệp vụ (Business Service Layer) và Tầng lưu trữ CSDL (Data Persistence Layer).
 
 ### 2.2 User Classes & Personas (Phân lớp người dùng và phân quyền)
 - **Customer**: Tương tác với hệ thống qua giao diện Web Browser hoặc RESTful API, được phân quyền theo cơ chế Role-Based Access Control (RBAC).
-- **Store Manager**: Tương tác với hệ thống qua giao diện Web Browser hoặc RESTful API, được phân quyền theo cơ chế Role-Based Access Control (RBAC).
 - **Admin**: Tương tác với hệ thống qua giao diện Web Browser hoặc RESTful API, được phân quyền theo cơ chế Role-Based Access Control (RBAC).
+- **End User**: Tương tác với hệ thống qua giao diện Web Browser hoặc RESTful API, được phân quyền theo cơ chế Role-Based Access Control (RBAC).
 
 ### 2.3 Operating Environment (Môi trường vận hành)
 - **Server**: Máy chủ Linux / Windows Server chạy môi trường Python 3.11+ / FastAPI runtime.
@@ -58,52 +58,76 @@ Giao diện trực quan, hỗ trợ đầy đủ các thao tác quản trị, t�
 ---
 
 ## 4. System Features & Functional Requirements (Yêu cầu chức năng chi tiết)
-### FR-001: Xay dung he thong quan ly don hang va ton kho thuong mai die
+### FR-001: Hệ thống quản lý kho thông minh cho chuỗi bán lẻ
 - **Mã định danh**: `FR-001`
 - **Mức độ ưu tiên**: `Must Have`
 - **Phân loại**: Chức năng chính
-- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: Xay dung he thong quan ly don hang va ton kho thuong mai dien tu. Bao gom phan he nguoi dung (User & Role).
-- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: xay dung he thong quan ly don hang va ton kho thuong mai dien tu. bao gom phan he nguoi dung (user & role).
+- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: Hệ thống quản lý kho thông minh cho chuỗi bán lẻ.
+- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: hệ thống quản lý kho thông minh cho chuỗi bán lẻ.
 - **Tiêu chuẩn nghiệm thu**: Người dùng thao tác và nhận được phản hồi thành công từ hệ thống
 
-### FR-002: danh muc san pham (Product & Category)
+### FR-002: Nhập kho
 - **Mã định danh**: `FR-002`
 - **Mức độ ưu tiên**: `Must Have`
 - **Phân loại**: Chức năng chính
-- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: danh muc san pham (Product & Category).
-- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: danh muc san pham (product & category).
+- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: Nhập kho.
+- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: nhập kho.
 - **Tiêu chuẩn nghiệm thu**: Người dùng thao tác và nhận được phản hồi thành công từ hệ thống
 
-### FR-003: gio hang (Cart)
+### FR-003: xuất kho
 - **Mã định danh**: `FR-003`
 - **Mức độ ưu tiên**: `Must Have`
 - **Phân loại**: Chức năng chính
-- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: gio hang (Cart).
-- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: gio hang (cart).
+- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: xuất kho.
+- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: xuất kho.
 - **Tiêu chuẩn nghiệm thu**: Người dùng thao tác và nhận được phản hồi thành công từ hệ thống
 
-### FR-004: don dat hang (Order & OrderItem)
+### FR-004: kiểm kê định kỳ với mã vạch QR code.
 - **Mã định danh**: `FR-004`
 - **Mức độ ưu tiên**: `Should Have`
 - **Phân loại**: Chức năng chính
-- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: don dat hang (Order & OrderItem).
-- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: don dat hang (order & orderitem).
+- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: kiểm kê định kỳ với mã vạch QR code..
+- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: kiểm kê định kỳ với mã vạch qr code.
 - **Tiêu chuẩn nghiệm thu**: Người dùng thao tác và nhận được phản hồi thành công từ hệ thống
 
-### FR-005: thanh toan (Payment Transaction)
+### FR-005: Cảnh báo tồn kho tối thiểu và tự động đề xuất đơn đặt hàng m
 - **Mã định danh**: `FR-005`
 - **Mức độ ưu tiên**: `Should Have`
 - **Phân loại**: Chức năng chính
-- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: thanh toan (Payment Transaction).
-- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: thanh toan (payment transaction).
+- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: Cảnh báo tồn kho tối thiểu và tự động đề xuất đơn đặt hàng mới..
+- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: cảnh báo tồn kho tối thiểu và tự động đề xuất đơn đặt hàng mới.
 - **Tiêu chuẩn nghiệm thu**: Người dùng thao tác và nhận được phản hồi thành công từ hệ thống
 
-### FR-006: va theo doi xuat nhap kho (Inventory Transaction).
+### FR-006: Phân quyền cho Thủ kho
 - **Mã định danh**: `FR-006`
 - **Mức độ ưu tiên**: `Should Have`
 - **Phân loại**: Chức năng chính
-- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: va theo doi xuat nhap kho (Inventory Transaction)..
-- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: va theo doi xuat nhap kho (inventory transaction).
+- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: Phân quyền cho Thủ kho.
+- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: phân quyền cho thủ kho.
+- **Tiêu chuẩn nghiệm thu**: Người dùng thao tác và nhận được phản hồi thành công từ hệ thống
+
+### FR-007: Nhân viên bốc dỡ
+- **Mã định danh**: `FR-007`
+- **Mức độ ưu tiên**: `Should Have`
+- **Phân loại**: Chức năng chính
+- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: Nhân viên bốc dỡ.
+- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: nhân viên bốc dỡ.
+- **Tiêu chuẩn nghiệm thu**: Người dùng thao tác và nhận được phản hồi thành công từ hệ thống
+
+### FR-008: và Quản lý logistics.
+- **Mã định danh**: `FR-008`
+- **Mức độ ưu tiên**: `Should Have`
+- **Phân loại**: Chức năng chính
+- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: và Quản lý logistics..
+- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: và quản lý logistics.
+- **Tiêu chuẩn nghiệm thu**: Người dùng thao tác và nhận được phản hồi thành công từ hệ thống
+
+### FR-009: Báo cáo doanh số và tỷ lệ thất thoát theo tháng.
+- **Mã định danh**: `FR-009`
+- **Mức độ ưu tiên**: `Should Have`
+- **Phân loại**: Chức năng chính
+- **Mô tả chi tiết**: Hệ thống đáp ứng tính năng: Báo cáo doanh số và tỷ lệ thất thoát theo tháng..
+- **Đặc tả hành vi**: Hệ thống **BẮT BUỘC (SHALL)** cung cấp chức năng hệ thống đáp ứng tính năng: báo cáo doanh số và tỷ lệ thất thoát theo tháng.
 - **Tiêu chuẩn nghiệm thu**: Người dùng thao tác và nhận được phản hồi thành công từ hệ thống
 
 
@@ -362,12 +386,15 @@ flowchart TD
 
 | Mã YC | Tên chức năng | Use Case tương ứng | Thực thể CSDL liên quan | Phương pháp kiểm thử |
 |:---:|:---|:---:|:---|:---|
-| `FR-001` | Xay dung he thong quan ly don hang va ton kho thuong mai die | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
-| `FR-002` | danh muc san pham (Product & Category) | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
-| `FR-003` | gio hang (Cart) | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
-| `FR-004` | don dat hang (Order & OrderItem) | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
-| `FR-005` | thanh toan (Payment Transaction) | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
-| `FR-006` | va theo doi xuat nhap kho (Inventory Transaction). | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
+| `FR-001` | Hệ thống quản lý kho thông minh cho chuỗi bán lẻ | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
+| `FR-002` | Nhập kho | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
+| `FR-003` | xuất kho | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
+| `FR-004` | kiểm kê định kỳ với mã vạch QR code. | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
+| `FR-005` | Cảnh báo tồn kho tối thiểu và tự động đề xuất đơn đặt hàng m | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
+| `FR-006` | Phân quyền cho Thủ kho | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
+| `FR-007` | Nhân viên bốc dỡ | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
+| `FR-008` | và Quản lý logistics. | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
+| `FR-009` | Báo cáo doanh số và tỷ lệ thất thoát theo tháng. | `UC-01` ~ `UC-04` | `students`, `classes` | Automated API & E2E Integration Test |
 
 ---
 *Tài liệu được khởi tạo và phê duyệt tự động bởi **Business Analyst Agent (`ba-01`)**. Tuân thủ nghiêm ngặt nguyên tắc phân định vai trò: BA không trực tiếp viết code ứng dụng hay DDL cơ sở dữ liệu.*

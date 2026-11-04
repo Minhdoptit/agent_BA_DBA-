@@ -162,11 +162,20 @@ class TaskResponse(BaseModel):
 
 
 class ArtifactInboxRequest(BaseModel):
-    artifact_id: str
-    type: str
-    created_by: str
+    artifact_id: Optional[str] = None
+    filename: Optional[str] = None
+    type: Optional[str] = "SRS_DOCUMENT"
+    artifact_type: Optional[str] = None
+    created_by: Optional[str] = "ba-01"
+    source_agent: Optional[str] = None
     content: str
     checksum: Optional[str] = None
+
+
+class PushToPMRequest(BaseModel):
+    pm_endpoint: Optional[str] = Field(None, description="Target PM Agent endpoint URL (defaults to env PM_ENDPOINT)")
+    pm_token: Optional[str] = Field(None, description="Bearer token for PM Agent API")
+    artifact_names: Optional[List[str]] = Field(None, description="Specific artifacts to push; pushes all if omitted")
 
 
 class GenerateFromSRSRequest(BaseModel):
@@ -423,7 +432,8 @@ def receive_artifact_inbox(payload: ArtifactInboxRequest, _: bool = Depends(veri
             detail=f"Checksum mismatch! Expected: {payload.checksum}, Computed: {computed_checksum}",
         )
 
-    clean_filename = Path(payload.artifact_id).name
+    raw_name = payload.artifact_id or payload.filename or "artifact.md"
+    clean_filename = Path(raw_name).name
     save_path = agent_instance.workspace_dir / clean_filename
     save_path.write_text(payload.content, encoding="utf-8")
 
@@ -432,16 +442,53 @@ def receive_artifact_inbox(payload: ArtifactInboxRequest, _: bool = Depends(veri
     inbox_dir.mkdir(parents=True, exist_ok=True)
     (inbox_dir / clean_filename).write_text(payload.content, encoding="utf-8")
 
+    sender = payload.created_by or payload.source_agent or "unknown"
     logger.info(
-        f"Artifact inbox received '{clean_filename}' from {payload.created_by} ({len(payload.content)} bytes, checksum: {computed_checksum[:8]}...)."
+        f"Artifact inbox received '{clean_filename}' from {sender} ({len(payload.content)} bytes, checksum: {computed_checksum[:8]}...)."
     )
 
     return {
         "status": "ACCEPTED",
+        "artifact_id": clean_filename,
+        "filename": clean_filename,
         "saved_path": str(save_path),
         "checksum": computed_checksum,
         "bytes_written": len(payload.content.encode("utf-8")),
     }
+
+
+@app.post("/artifacts/push-to-pm", tags=["Artifact Management", "Cross-Agent Communication"])
+def push_artifacts_to_pm_endpoint(
+    payload: Optional[PushToPMRequest] = None,
+    _: bool = Depends(verify_bearer_token),
+) -> Dict[str, Any]:
+    """Push generated database artifacts from DBA agent directly to PM Agent's inbox."""
+    endpoint = payload.pm_endpoint if payload else None
+    token = payload.pm_token if payload else None
+    names = payload.artifact_names if payload else None
+    report = agent_instance.push_artifacts_to_pm(
+        pm_endpoint=endpoint,
+        pm_token=token,
+        artifact_names=names,
+    )
+    return report
+
+
+@app.post("/schema/send-to-pm", tags=["Schema Generation", "Cross-Agent Communication"])
+def send_schema_to_pm_endpoint(
+    payload: Optional[PushToPMRequest] = None,
+    _: bool = Depends(verify_bearer_token),
+) -> Dict[str, Any]:
+    """Send database schema (schema.sql, ERD.md, DATABASE_DESIGN.md) directly to PM Agent inbox."""
+    endpoint = payload.pm_endpoint if payload else None
+    token = payload.pm_token if payload else None
+    schema_files = ["schema.sql", "ERD.md", "DATABASE_DESIGN.md", "DATA_REQUIREMENTS.md"]
+    report = agent_instance.push_artifacts_to_pm(
+        pm_endpoint=endpoint,
+        pm_token=token,
+        artifact_names=schema_files,
+    )
+    return report
 
 
 if __name__ == "__main__":

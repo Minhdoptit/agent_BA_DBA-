@@ -6,6 +6,7 @@ and producing standardized handover specification artifacts for downstream agent
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import logging
 import os
@@ -16,6 +17,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import httpx
 from dotenv import load_dotenv
 
 from .tools.docx_exporter import export_markdown_to_docx
@@ -274,6 +276,9 @@ class BAAgent:
             },
         }
 
+        # Auto-push generated specification artifacts to PM Agent machine (Zero shared folder)
+        pm_push_report = self.push_artifacts_to_pm()
+
         return {
             "task_id": task_id,
             "status": "completed",
@@ -306,7 +311,129 @@ class BAAgent:
             ],
             "artifacts": artifact_records,
             "handover_notes": handover_notes,
+            "pm_push_report": pm_push_report,
         }
+
+    def push_artifacts_to_pm(
+        self,
+        pm_endpoint: Optional[str] = None,
+        pm_token: Optional[str] = None,
+        artifact_names: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Automatically or manually push generated BA artifacts to the PM Agent's inbox."""
+        endpoint = (
+            pm_endpoint
+            or os.getenv("PM_ENDPOINT")
+            or "http://127.0.0.1:8001"
+        ).rstrip("/")
+        token = (
+            pm_token
+            or os.getenv("PM_API_KEY")
+            or os.getenv("AGENT_API_KEY_PM_01")
+            or ""
+        )
+
+        inbox_url = f"{endpoint}/artifacts/inbox"
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        type_mapping = {
+            "SRS.md": "SRS_DOCUMENT",
+            "srs.docs": "SRS_DOCUMENT",
+            "SRS.docx": "SRS_DOCUMENT",
+            "REQUIREMENTS.md": "REQUIREMENTS_SPEC",
+            "USER_STORIES.md": "USER_STORIES",
+            "USE_CASES.md": "USE_CASES",
+            "ACCEPTANCE_CRITERIA.md": "ACCEPTANCE_CRITERIA",
+            "BUSINESS_PROCESS.md": "BUSINESS_PROCESS",
+        }
+
+        files_to_push = []
+        if artifact_names:
+            for name in artifact_names:
+                fpath = self.artifact_dir / Path(name).name
+                if fpath.is_file():
+                    files_to_push.append(fpath)
+        else:
+            for ext in ["*.md", "*.docs", "*.docx"]:
+                files_to_push.extend(self.artifact_dir.glob(ext))
+            files_to_push = sorted(list(set(files_to_push)), key=lambda f: f.name)
+
+        results = []
+        success_count = 0
+        failure_count = 0
+
+        logger.info("[Auto-Push PM] Initiating push of %d artifacts to PM at %s", len(files_to_push), inbox_url)
+
+        with httpx.Client(timeout=10.0) as client:
+            for file_path in files_to_push:
+                fname = file_path.name
+                if fname.startswith("~$"):  # Skip MS Word lock files
+                    continue
+
+                raw_bytes = file_path.read_bytes()
+
+                if file_path.suffix.lower() == ".docx":
+                    content_str = base64.b64encode(raw_bytes).decode("utf-8")
+                else:
+                    content_str = file_path.read_text(encoding="utf-8")
+
+                checksum = hashlib.sha256(content_str.encode("utf-8")).hexdigest()
+
+                art_type = type_mapping.get(fname, "SPECIFICATION")
+                payload = {
+                    "artifact_id": fname,
+                    "filename": fname,
+                    "type": art_type,
+                    "artifact_type": art_type,
+                    "created_by": self.agent_id,
+                    "source_agent": self.agent_id,
+                    "content": content_str,
+                    "checksum": checksum,
+                }
+
+                try:
+                    resp = client.post(inbox_url, json=payload, headers=headers)
+                    if resp.status_code in (200, 201):
+                        success_count += 1
+                        results.append({
+                            "artifact": fname,
+                            "status": "PUSHED",
+                            "http_status": resp.status_code,
+                            "size_bytes": len(raw_bytes),
+                            "checksum": checksum[:8] + "...",
+                        })
+                        logger.info("[Auto-Push PM] Pushed '%s' successfully (HTTP %d).", fname, resp.status_code)
+                    else:
+                        failure_count += 1
+                        results.append({
+                            "artifact": fname,
+                            "status": "REJECTED",
+                            "http_status": resp.status_code,
+                            "detail": resp.text[:200],
+                        })
+                        logger.warning("[Auto-Push PM] PM rejected '%s' with HTTP %d: %s", fname, resp.status_code, resp.text[:200])
+                except Exception as exc:
+                    failure_count += 1
+                    results.append({
+                        "artifact": fname,
+                        "status": "UNREACHABLE",
+                        "error": str(exc),
+                    })
+                    logger.warning("[Auto-Push PM] Could not deliver '%s' to PM at %s: %s", fname, inbox_url, exc)
+
+        report = {
+            "pm_endpoint": endpoint,
+            "inbox_url": inbox_url,
+            "total_artifacts": len(files_to_push),
+            "pushed_count": success_count,
+            "failed_count": failure_count,
+            "results": results,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        logger.info("[Auto-Push PM] Push complete. Succeeded: %d, Failed/Skipped: %d.", success_count, failure_count)
+        return report
 
     def _enforce_ba_principles(self, documents: Dict[str, str]) -> None:
         """Validate generated documents strictly adhere to BA boundaries."""

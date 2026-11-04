@@ -116,3 +116,17 @@ def test_bearer_token_authentication(monkeypatch, client):
     # 4. /health endpoint remains open (no auth required)
     res_health = client.get("/health")
     assert res_health.status_code == 200
+
+
+def test_push_to_pm_endpoints(client, auth_headers):
+    payload = {"pm_endpoint": "http://127.0.0.1:9999", "artifact_names": ["REQUIREMENTS.md"]}
+    res = client.post("/artifacts/push-to-pm", json=payload, headers=auth_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert "pushed_count" in data
+    assert "total_artifacts" in data
+
+    res_srs = client.post("/srs/send-to-pm", json=payload, headers=auth_headers)
+    assert res_srs.status_code == 200
+    data_srs = res_srs.json()
+    assert "pushed_count" in data_srs

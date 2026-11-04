@@ -2,7 +2,7 @@
 
 > [!NOTE]
 > **Document Version**: 1.0.0 | **Author**: Senior Database Architect (`dba-01`)
-> **Source Requirement**: Business Analyst Specification (Enterprise System)
+> **Source Requirement**: Business Analyst Specification (MediCare Health Portal)
 
 ## 1. Executive Summary & Data Architecture Scope
 This document details the data requirements, entity definitions, attribute domains, and validation rules derived directly from the business specifications provided by Business Analyst AI Agent (`ba-01`).

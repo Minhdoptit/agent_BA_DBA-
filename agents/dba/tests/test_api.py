@@ -104,3 +104,17 @@ def test_post_artifacts_inbox(auth_headers):
     data = response.json()
     assert data["status"] == "ACCEPTED"
     assert "checksum" in data
+
+
+def test_push_to_pm_endpoints(auth_headers):
+    payload = {"pm_endpoint": "http://127.0.0.1:9999", "artifact_names": ["schema.sql"]}
+    res = client.post("/artifacts/push-to-pm", json=payload, headers=auth_headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert "pushed_count" in data
+    assert "total_artifacts" in data
+
+    res_schema = client.post("/schema/send-to-pm", json=payload, headers=auth_headers)
+    assert res_schema.status_code == 200
+    data_schema = res_schema.json()
+    assert "pushed_count" in data_schema

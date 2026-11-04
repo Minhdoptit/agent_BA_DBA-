@@ -1,14 +1,14 @@
-# BUSINESS REQUIREMENTS DOCUMENT (BRD) - SMART E-COMMERCE ORDER & INVENTORY SYSTEM
+# BUSINESS REQUIREMENTS DOCUMENT (BRD) - WAREHOUSE INVENTORY MANAGEMENT
 
 > **Agent ID**: `ba-01` | **Role**: Senior Business Analyst | **Standard**: ISO/IEC/IEEE 29148
 
 ---
 
 ## 1. Tóm tắt điều hành & Mục tiêu nghiệp vụ (Executive Summary)
-Tài liệu đặc tả yêu cầu nghiệp vụ phần mềm cho Smart E-Commerce Order & Inventory System. Bao gồm 6 yêu cầu chức năng cốt lõi (MoSCoW), 5 chỉ số phi chức năng chuẩn ISO 25010, sơ đồ tuần tự (Sequence Diagrams), sơ đồ quy trình hoạt động, và các kịch bản Use Case chi tiết.
+Tài liệu đặc tả yêu cầu nghiệp vụ phần mềm cho Warehouse Inventory Management. Bao gồm 9 yêu cầu chức năng cốt lõi (MoSCoW), 5 chỉ số phi chức năng chuẩn ISO 25010, sơ đồ tuần tự (Sequence Diagrams), sơ đồ quy trình hoạt động, và các kịch bản Use Case chi tiết.
 
 ### 1.1 Mục tiêu kinh doanh cốt lõi (Core Business Goals)
-- **Mục tiêu**: Xây dựng nền tảng số hóa và tự động hóa quy trình quản trị cho Smart E-Commerce Order & Inventory System.
+- **Mục tiêu**: Xây dựng nền tảng số hóa và tự động hóa quy trình quản trị cho Warehouse Inventory Management.
 - **Mục tiêu**: Cung cấp giao diện làm việc trực quan, tối ưu tốc độ tra cứu và thao tác dữ liệu.
 - **Mục tiêu**: Đảm bảo an toàn dữ liệu, toàn vẹn quan hệ và khả năng mở rộng trong tương lai.
 
@@ -25,20 +25,23 @@ Tài liệu đặc tả yêu cầu nghiệp vụ phần mềm cho Smart E-Commer
 
 ## 3. Danh sách tác nhân hệ thống (Stakeholders & Actors)
 - **Customer**: Có quyền hạn tương ứng theo phân quyền RBAC.
-- **Store Manager**: Có quyền hạn tương ứng theo phân quyền RBAC.
 - **Admin**: Có quyền hạn tương ứng theo phân quyền RBAC.
+- **End User**: Có quyền hạn tương ứng theo phân quyền RBAC.
 
 ## 4. Functional Requirements (FR) Matrix
 ### MoSCoW Priority Breakdown
 
 | Mã YC | Tên chức năng | Phân loại | MoSCoW Priority | Tiêu chí nghiệm thu |
 |:---:|:---|:---|:---:|:---|
-| `FR-001` | **Xay dung he thong quan ly don hang va ton kho thuong mai die** | Chức năng chính | `Must Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
-| `FR-002` | **danh muc san pham (Product & Category)** | Chức năng chính | `Must Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
-| `FR-003` | **gio hang (Cart)** | Chức năng chính | `Must Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
-| `FR-004` | **don dat hang (Order & OrderItem)** | Chức năng chính | `Should Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
-| `FR-005` | **thanh toan (Payment Transaction)** | Chức năng chính | `Should Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
-| `FR-006` | **va theo doi xuat nhap kho (Inventory Transaction).** | Chức năng chính | `Should Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
+| `FR-001` | **Hệ thống quản lý kho thông minh cho chuỗi bán lẻ** | Chức năng chính | `Must Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
+| `FR-002` | **Nhập kho** | Chức năng chính | `Must Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
+| `FR-003` | **xuất kho** | Chức năng chính | `Must Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
+| `FR-004` | **kiểm kê định kỳ với mã vạch QR code.** | Chức năng chính | `Should Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
+| `FR-005` | **Cảnh báo tồn kho tối thiểu và tự động đề xuất đơn đặt hàng m** | Chức năng chính | `Should Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
+| `FR-006` | **Phân quyền cho Thủ kho** | Chức năng chính | `Should Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
+| `FR-007` | **Nhân viên bốc dỡ** | Chức năng chính | `Should Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
+| `FR-008` | **và Quản lý logistics.** | Chức năng chính | `Should Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
+| `FR-009` | **Báo cáo doanh số và tỷ lệ thất thoát theo tháng.** | Chức năng chính | `Should Have` | Người dùng thao tác và nhận được phản hồi thành công từ hệ thống |
 
 ## 5. Non-Functional Requirements (NFR) Matrix (ISO/IEC 25010)
 

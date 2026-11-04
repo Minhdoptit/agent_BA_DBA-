@@ -128,10 +128,20 @@ class HealthResponse(BaseModel):
 
 
 class InboxUploadRequest(BaseModel):
-    filename: str
+    filename: Optional[str] = None
+    artifact_id: Optional[str] = None
     content: str
     source_agent: Optional[str] = "pm-01"
+    created_by: Optional[str] = None
     artifact_type: Optional[str] = "BRIEF"
+    type: Optional[str] = None
+    checksum: Optional[str] = None
+
+
+class PushToPMRequest(BaseModel):
+    pm_endpoint: Optional[str] = Field(None, description="Target PM Agent endpoint URL (defaults to env PM_ENDPOINT)")
+    pm_token: Optional[str] = Field(None, description="Bearer token for PM Agent API")
+    artifact_names: Optional[List[str]] = Field(None, description="Specific artifacts to push; pushes all if omitted")
 
 
 # --- API Endpoints ---
@@ -379,21 +389,65 @@ def get_artifact(filename: str, _auth: bool = Depends(verify_token)) -> Response
 @app.post("/artifacts/inbox", status_code=status.HTTP_201_CREATED, tags=["Artifact Management"])
 def upload_inbox_artifact(payload: InboxUploadRequest, _auth: bool = Depends(verify_token)) -> Dict[str, Any]:
     """Accept incoming artifact (e.g. project brief from PM Conductor) into workspace."""
-    safe_name = Path(payload.filename).name
+    raw_name = payload.filename or payload.artifact_id or "inbox_artifact.md"
+    safe_name = Path(raw_name).name
     target_path = ba_agent.workspace_dir / safe_name
     content_bytes = payload.content.encode("utf-8")
-    target_path.write_bytes(content_bytes)
 
-    checksum = hashlib.sha256(content_bytes).hexdigest()
-    logger.info("Received inbox artifact %s from %s", safe_name, payload.source_agent)
+    computed_checksum = hashlib.sha256(content_bytes).hexdigest()
+    if payload.checksum and payload.checksum.lower() != computed_checksum.lower():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Checksum mismatch: received {payload.checksum}, computed {computed_checksum}",
+        )
+
+    target_path.write_bytes(content_bytes)
+    sender = payload.source_agent or payload.created_by or "pm-01"
+    logger.info("Received inbox artifact %s from %s", safe_name, sender)
 
     return {
         "status": "received",
         "filename": safe_name,
+        "artifact_id": safe_name,
         "saved_path": str(target_path.resolve()),
         "size_bytes": len(content_bytes),
-        "checksum": checksum,
+        "checksum": computed_checksum,
+        "source_agent": sender,
     }
+
+
+@app.post("/artifacts/push-to-pm", tags=["Artifact Management", "Cross-Agent Communication"])
+def push_artifacts_to_pm_endpoint(
+    payload: Optional[PushToPMRequest] = None,
+    _auth: bool = Depends(verify_token),
+) -> Dict[str, Any]:
+    """Push generated specification artifacts from BA agent directly to PM Agent's inbox."""
+    endpoint = payload.pm_endpoint if payload else None
+    token = payload.pm_token if payload else None
+    names = payload.artifact_names if payload else None
+    report = ba_agent.push_artifacts_to_pm(
+        pm_endpoint=endpoint,
+        pm_token=token,
+        artifact_names=names,
+    )
+    return report
+
+
+@app.post("/srs/send-to-pm", tags=["SRS Management", "Cross-Agent Communication"])
+def send_srs_to_pm_endpoint(
+    payload: Optional[PushToPMRequest] = None,
+    _auth: bool = Depends(verify_token),
+) -> Dict[str, Any]:
+    """Send SRS documents (srs.docs, SRS.md, SRS.docx, REQUIREMENTS.md) directly to PM Agent inbox."""
+    endpoint = payload.pm_endpoint if payload else None
+    token = payload.pm_token if payload else None
+    srs_files = ["srs.docs", "SRS.md", "SRS.docx", "REQUIREMENTS.md"]
+    report = ba_agent.push_artifacts_to_pm(
+        pm_endpoint=endpoint,
+        pm_token=token,
+        artifact_names=srs_files,
+    )
+    return report
 
 
 if __name__ == "__main__":

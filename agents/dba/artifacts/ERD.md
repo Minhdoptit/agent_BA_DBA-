@@ -97,12 +97,12 @@ erDiagram
 
 | Entity / Table Name | Primary Key | Description | Traceability / BA Requirement |
 |---|---|---|---|
-| `departments` | `id` | Khoa / Vien dao tao quan ly cac nganh va lop hoc | FR-001 |
-| `classes` | `id` | Lop sinh hoat hoc tap theo nien khoa | FR-001 |
-| `students` | `id` | Ho so thong tin sinh vien day du kem anh dai dien | FR-002 |
-| `courses` | `id` | Hoc phan chuong trinh dao tao | FR-003 |
-| `enrollments` | `id` | Dang ky hoc phan va bang diem sinh vien | FR-003 |
-| `student_audit_logs` | `id` | Nhat ky kiem toan bat bien ghi lai cac thay doi ho so sinh vien | FR-004 |
+| `departments` | `id` | Khoa / Vien dao tao quan ly cac nganh va lop hoc | FR-01 |
+| `classes` | `id` | Lop sinh hoat hoc tap theo nien khoa | FR-01 |
+| `students` | `id` | Ho so thong tin sinh vien day du kem anh dai dien | FR-02 |
+| `courses` | `id` | Hoc phan chuong trinh dao tao | FR-03 |
+| `enrollments` | `id` | Dang ky hoc phan va bang diem sinh vien | FR-03 |
+| `student_audit_logs` | `id` | Nhat ky kiem toan bat bien ghi lai cac thay doi ho so sinh vien | FR-04 |
 
 ---
 

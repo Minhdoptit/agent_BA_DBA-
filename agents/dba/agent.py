@@ -7,6 +7,7 @@ Produces the 6 mandatory DBA artifacts.
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import hashlib
 import json
 import logging
@@ -14,6 +15,8 @@ import os
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+import httpx
 
 from .tools.erd_generator import ERDGenerator
 from .tools.llm_client import GeminiClient
@@ -773,6 +776,9 @@ class DBAAgent:
 
         logger.info("DBAAgent: Successfully generated all %d mandatory artifacts.", len(saved_artifacts))
 
+        # Auto-push generated database artifacts to PM Agent machine (Zero shared folder)
+        pm_push_report = self.push_artifacts_to_pm()
+
         return {
             "status": "SUCCESS" if validation_results["all_passed"] else "WARNING",
             "agent_id": self.AGENT_ID,
@@ -780,6 +786,7 @@ class DBAAgent:
             "domain_name": req_info["domain_name"],
             "validation": validation_results,
             "artifacts": saved_artifacts,
+            "pm_push_report": pm_push_report,
             "summary": {
                 "tables_count": len(schema_model.tables),
                 "total_tables": len(schema_model.tables),
@@ -788,3 +795,116 @@ class DBAAgent:
                 "in_memory_test": validation_results["in_memory_execution"]["passed"],
             },
         }
+
+    def push_artifacts_to_pm(
+        self,
+        pm_endpoint: Optional[str] = None,
+        pm_token: Optional[str] = None,
+        artifact_names: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """Automatically or manually push generated database artifacts to the PM Agent's inbox."""
+        endpoint = (
+            pm_endpoint
+            or os.getenv("PM_ENDPOINT")
+            or "http://127.0.0.1:8001"
+        ).rstrip("/")
+        token = (
+            pm_token
+            or os.getenv("PM_API_KEY")
+            or os.getenv("AGENT_API_KEY_PM_01")
+            or ""
+        )
+
+        inbox_url = f"{endpoint}/artifacts/inbox"
+        headers = {"Content-Type": "application/json"}
+        if token:
+            headers["Authorization"] = f"Bearer {token}"
+
+        type_mapping = {
+            "schema.sql": "DATABASE_SCHEMA",
+            "ERD.md": "ERD_DIAGRAM",
+            "DATABASE_DESIGN.md": "DATABASE_DESIGN",
+            "DATA_REQUIREMENTS.md": "DATA_REQUIREMENTS",
+            "INDEX_STRATEGY.md": "INDEX_STRATEGY",
+            "DATABASE_REVIEW.md": "DATABASE_REVIEW",
+        }
+
+        files_to_push = []
+        if artifact_names:
+            for name in artifact_names:
+                fpath = self.artifact_dir / Path(name).name
+                if fpath.is_file():
+                    files_to_push.append(fpath)
+        else:
+            for ext in ["*.sql", "*.md"]:
+                files_to_push.extend(self.artifact_dir.glob(ext))
+            files_to_push = sorted(list(set(files_to_push)), key=lambda f: f.name)
+
+        results = []
+        success_count = 0
+        failure_count = 0
+
+        logger.info("[Auto-Push PM] Initiating push of %d DBA artifacts to PM at %s", len(files_to_push), inbox_url)
+
+        with httpx.Client(timeout=10.0) as client:
+            for file_path in files_to_push:
+                fname = file_path.name
+                if fname.startswith("~$") or "inbox" in str(file_path):
+                    continue
+
+                content_str = file_path.read_text(encoding="utf-8")
+                checksum = hashlib.sha256(content_str.encode("utf-8")).hexdigest()
+
+                art_type = type_mapping.get(fname, "DATABASE_SPECIFICATION")
+                payload = {
+                    "artifact_id": fname,
+                    "filename": fname,
+                    "type": art_type,
+                    "artifact_type": art_type,
+                    "created_by": self.AGENT_ID,
+                    "source_agent": self.AGENT_ID,
+                    "content": content_str,
+                    "checksum": checksum,
+                }
+
+                try:
+                    resp = client.post(inbox_url, json=payload, headers=headers)
+                    if resp.status_code in (200, 201):
+                        success_count += 1
+                        results.append({
+                            "artifact": fname,
+                            "status": "PUSHED",
+                            "http_status": resp.status_code,
+                            "size_bytes": len(raw_bytes),
+                            "checksum": checksum[:8] + "...",
+                        })
+                        logger.info("[Auto-Push PM] Pushed '%s' successfully (HTTP %d).", fname, resp.status_code)
+                    else:
+                        failure_count += 1
+                        results.append({
+                            "artifact": fname,
+                            "status": "REJECTED",
+                            "http_status": resp.status_code,
+                            "detail": resp.text[:200],
+                        })
+                        logger.warning("[Auto-Push PM] PM rejected '%s' with HTTP %d: %s", fname, resp.status_code, resp.text[:200])
+                except Exception as exc:
+                    failure_count += 1
+                    results.append({
+                        "artifact": fname,
+                        "status": "UNREACHABLE",
+                        "error": str(exc),
+                    })
+                    logger.warning("[Auto-Push PM] Could not deliver '%s' to PM at %s: %s", fname, inbox_url, exc)
+
+        report = {
+            "pm_endpoint": endpoint,
+            "inbox_url": inbox_url,
+            "total_artifacts": len(files_to_push),
+            "pushed_count": success_count,
+            "failed_count": failure_count,
+            "results": results,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        logger.info("[Auto-Push PM] Push complete. Succeeded: %d, Failed/Skipped: %d.", success_count, failure_count)
+        return report
