@@ -10,7 +10,7 @@ agents:
     role: "BA"
     host: "0.0.0.0"
     port: 8003
-    api_key: "ba-secret-token-key-2026-secure-32chars"
+    api_key: "539f9a451dd3c62c6bfd5c22d6ede897"
     endpoint: "http://127.0.0.1:8003"
     artifacts_dir: "agents/ba/artifacts"
     logs_dir: "agents/ba/logs"
@@ -21,7 +21,7 @@ agents:
     role: "DBA"
     host: "0.0.0.0"
     port: 8004
-    api_key: "dba-secret-token-key-2026-secure-32chars"
+    api_key: "6f417b1539e29e42a0f9f857d77db900"
     endpoint: "http://127.0.0.1:8004"
     artifacts_dir: "agents/dba/artifacts"
     logs_dir: "agents/dba/logs"

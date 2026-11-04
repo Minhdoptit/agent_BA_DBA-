@@ -19,12 +19,12 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional
 
-# Setup console encoding for Windows compatibility
+# Setup console encoding with instant line buffering for Windows
 def _setup_console_encoding() -> None:
     if sys.platform == "win32" and hasattr(sys.stdout, "buffer"):
         try:
-            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace", line_buffering=True)
         except Exception:
             pass
 
@@ -40,6 +40,21 @@ import httpx
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
 
+def free_port(port: int) -> None:
+    """Kills any previous leftover process holding the target port."""
+    if sys.platform == "win32":
+        try:
+            cmd = f'powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort {port} -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess"'
+            pids = subprocess.check_output(cmd, shell=True, text=True, errors="ignore").strip().splitlines()
+            for pid_str in set(pids):
+                pid_str = pid_str.strip()
+                if pid_str.isdigit() and int(pid_str) != os.getpid():
+                    print(f"[*] Releasing port {port} from old process PID {pid_str}...", flush=True)
+                    os.system(f"taskkill /F /PID {pid_str} >nul 2>&1")
+        except Exception:
+            pass
+
+
 def load_config() -> dict:
     """Loads configuration from config/agents.yaml with sensible defaults."""
     config_file = ROOT_DIR / "config" / "agents.yaml"
@@ -48,7 +63,7 @@ def load_config() -> dict:
             with open(config_file, "r", encoding="utf-8") as f:
                 return yaml.safe_load(f) or {}
         except Exception as exc:
-            print(f"[WARN] Failed to read agents.yaml: {exc}. Using fallback defaults.")
+            print(f"[WARN] Failed to read agents.yaml: {exc}. Using fallback defaults.", flush=True)
 
     return {
         "agents": {
@@ -93,6 +108,9 @@ def start_agent_process(
     port = int(agent_cfg.get("port", 8003 if agent_key == "ba" else 8004))
     api_key = agent_cfg.get("api_key", "")
 
+    # Ensure port is completely free
+    free_port(port)
+
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT_DIR)
     env["HOST"] = host
@@ -104,7 +122,6 @@ def start_agent_process(
     env["WORKSPACE_DIR"] = str(ROOT_DIR / "agents" / agent_key / "workspace")
     env["LOGS_DIR"] = str(ROOT_DIR / "agents" / agent_key / "logs")
 
-    # Pass peer agent endpoint and key for cross-agent API communication
     other_port = other_cfg.get("port", 8004 if agent_key == "ba" else 8003)
     other_key = other_cfg.get("api_key", "")
     if agent_key == "ba":
@@ -127,17 +144,13 @@ def start_agent_process(
         "info",
     ]
 
-    print(f"[*] Starting {agent_key.upper()} Agent on http://{host}:{port} ...")
+    print(f"[*] Starting {agent_key.upper()} Agent on http://{host}:{port} ...", flush=True)
     proc = subprocess.Popen(
         cmd,
         cwd=str(ROOT_DIR),
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        bufsize=1,
+        stdout=None,  # Output logs directly to console in real-time
+        stderr=None,
     )
     return proc
 
@@ -157,17 +170,17 @@ def main():
     processes: Dict[str, subprocess.Popen] = {}
 
     def terminate_all():
-        print("\n[*] Terminating all running agent processes...")
+        print("\n[*] Terminating all running agent processes...", flush=True)
         for name, p in processes.items():
             try:
                 p.terminate()
-                p.wait(timeout=3)
+                p.wait(timeout=2)
             except Exception:
                 try:
                     p.kill()
                 except Exception:
                     pass
-        print("[OK] All agents stopped.")
+        print("[OK] All agents stopped.", flush=True)
 
     # Register signal handlers
     signal.signal(signal.SIGINT, lambda s, f: (terminate_all(), sys.exit(0)))
@@ -183,41 +196,37 @@ def main():
             proc_dba = start_agent_process("dba", dba_cfg, ba_cfg)
             processes["dba"] = proc_dba
 
-        print("\n[*] Waiting for agent health probes...")
+        print("\n[*] Waiting for agent health probes...", flush=True)
 
         # Verify BA Health
         if "ba" in processes:
             ba_port = ba_cfg.get("port", 8003)
             if wait_for_agent_healthy(f"http://127.0.0.1:{ba_port}", timeout=args.timeout):
-                print(f"  [OK] BA Agent is UP and HEALTHY at http://127.0.0.1:{ba_port} (PID: {processes['ba'].pid})")
+                print(f"  [OK] BA Agent is UP and HEALTHY at http://127.0.0.1:{ba_port} (PID: {processes['ba'].pid})", flush=True)
             else:
-                print(f"  [FAIL] BA Agent failed to become healthy within {args.timeout}s")
+                print(f"  [FAIL] BA Agent failed to become healthy within {args.timeout}s", flush=True)
 
         # Verify DBA Health
         if "dba" in processes:
             dba_port = dba_cfg.get("port", 8004)
             if wait_for_agent_healthy(f"http://127.0.0.1:{dba_port}", timeout=args.timeout):
-                print(f"  [OK] DBA Agent is UP and HEALTHY at http://127.0.0.1:{dba_port} (PID: {processes['dba'].pid})")
+                print(f"  [OK] DBA Agent is UP and HEALTHY at http://127.0.0.1:{dba_port} (PID: {processes['dba'].pid})", flush=True)
             else:
-                print(f"  [FAIL] DBA Agent failed to become healthy within {args.timeout}s")
+                print(f"  [FAIL] DBA Agent failed to become healthy within {args.timeout}s", flush=True)
 
-        print("\n" + "=" * 65)
-        print(" MULTI-AGENT BA & DBA SYSTEM RUNNING")
-        print("=" * 65)
-        print(f" - BA Agent:  http://127.0.0.1:{ba_cfg.get('port', 8003)}/health")
-        print(f" - DBA Agent: http://127.0.0.1:{dba_cfg.get('port', 8004)}/health")
-        print(" Press Ctrl+C to stop all agents.\n")
+        print("\n" + "=" * 65, flush=True)
+        print(" MULTI-AGENT BA & DBA SYSTEM RUNNING", flush=True)
+        print("=" * 65, flush=True)
+        print(f" - BA Agent:  http://127.0.0.1:{ba_cfg.get('port', 8003)}/health", flush=True)
+        print(f" - DBA Agent: http://127.0.0.1:{dba_cfg.get('port', 8004)}/health", flush=True)
+        print(" Press Ctrl+C to stop all agents.\n", flush=True)
 
         # Monitor loop
         while True:
             for name, p in list(processes.items()):
                 ret = p.poll()
                 if ret is not None:
-                    print(f"[!] Process {name.upper()} exited unexpectedly with code {ret}")
-                    if p.stdout:
-                        out = p.stdout.read()
-                        if out:
-                            print(out)
+                    print(f"[!] Process {name.upper()} exited unexpectedly with code {ret}", flush=True)
                     terminate_all()
                     return ret
             time.sleep(1)
@@ -225,7 +234,7 @@ def main():
     except KeyboardInterrupt:
         terminate_all()
     except Exception as exc:
-        print(f"[!] Unexpected error: {exc}")
+        print(f"[!] Unexpected error: {exc}", flush=True)
         terminate_all()
         raise
 
