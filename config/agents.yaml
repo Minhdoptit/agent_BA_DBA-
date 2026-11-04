@@ -1,0 +1,27 @@
+system:
+  name: "Multi-Agent BA-DBA Network"
+  version: "1.0.0"
+  env: "development"
+
+agents:
+  ba:
+    id: "ba-01"
+    name: "Business Analyst Agent"
+    role: "BA"
+    host: "0.0.0.0"
+    port: 8003
+    api_key: "ba-secret-token-key-2026-secure-32chars"
+    endpoint: "http://127.0.0.1:8003"
+    artifacts_dir: "agents/ba/artifacts"
+    logs_dir: "agents/ba/logs"
+
+  dba:
+    id: "dba-01"
+    name: "Database Administrator Agent"
+    role: "DBA"
+    host: "0.0.0.0"
+    port: 8004
+    api_key: "dba-secret-token-key-2026-secure-32chars"
+    endpoint: "http://127.0.0.1:8004"
+    artifacts_dir: "agents/dba/artifacts"
+    logs_dir: "agents/dba/logs"
