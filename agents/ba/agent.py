@@ -277,7 +277,10 @@ class BAAgent:
         }
 
         # Auto-push generated specification artifacts to PM Agent machine (Zero shared folder)
-        pm_push_report = self.push_artifacts_to_pm()
+        ctx = payload.get("context", {}) if isinstance(payload.get("context"), dict) else {}
+        pm_ep = payload.get("pm_endpoint") or payload.get("callback_url") or ctx.get("pm_endpoint")
+        pm_tk = payload.get("pm_token") or payload.get("api_key") or ctx.get("pm_token")
+        pm_push_report = self.push_artifacts_to_pm(pm_endpoint=pm_ep, pm_token=pm_tk)
 
         return {
             "task_id": task_id,

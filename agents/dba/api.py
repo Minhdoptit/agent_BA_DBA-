@@ -133,12 +133,20 @@ class AgentMetadata(BaseModel):
 
 
 class TaskRequest(BaseModel):
+    model_config = {"extra": "allow"}
+
     task_id: Optional[str] = Field(default=None, description="Unique task identifier")
     type: Optional[str] = Field(default="DATABASE_DESIGN", description="Task type")
     requirements: Optional[str] = Field(default=None, description="Raw SRS text or requirements string")
     brief: Optional[str] = Field(default=None, description="Alternative alias for requirements")
+    prompt: Optional[str] = Field(default=None, description="Alternative alias for requirements")
+    description: Optional[str] = Field(default=None, description="Alternative alias for requirements")
     content: Optional[str] = Field(default=None, description="Alternative alias for requirements text")
     file_path: Optional[str] = Field(default=None, description="Relative or absolute path to SRS file")
+    context: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional context")
+    callback_url: Optional[str] = Field(None, description="Optional callback URL")
+    pm_endpoint: Optional[str] = Field(None, description="Optional PM endpoint")
+    pm_token: Optional[str] = Field(None, description="Optional PM token")
 
 
 class ArtifactItem(BaseModel):
@@ -305,8 +313,10 @@ def create_task(payload: TaskRequest, _: bool = Depends(verify_bearer_token)) ->
             else:
                 input_text = "Project: E-Commerce Store with user auth, product catalog, orders, and payments."
 
+        pm_ep = payload.pm_endpoint or payload.callback_url or (payload.context.get("pm_endpoint") if payload.context else None)
+        pm_tk = payload.pm_token or (payload.context.get("pm_token") if payload.context else None)
         logger.info(f"Executing database design workflow for task [{task_id}]...")
-        result = agent_instance.run(input_text)
+        result = agent_instance.run(input_text, pm_endpoint=pm_ep, pm_token=pm_tk)
 
         response = TaskResponse(
             task_id=task_id,

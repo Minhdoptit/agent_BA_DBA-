@@ -94,13 +94,21 @@ def verify_token(authorization: Optional[str] = Header(None)) -> bool:
 
 # --- Request & Response Models ---
 class TaskRequest(BaseModel):
+    model_config = {"extra": "allow"}
+
     task_id: Optional[str] = Field(None, description="Optional caller-defined task identifier")
     task_type: Optional[str] = Field("analyze_requirements", description="Type of task to perform")
     project_name: Optional[str] = Field("Software Application", description="Human-readable project title")
+    title: Optional[str] = Field(None, description="Alternative field for project title")
     description: Optional[str] = Field("", description="Raw requirement description / brief")
     requirements: Optional[str] = Field("", description="Alternative field for raw requirement text")
+    brief: Optional[str] = Field("", description="Alternative field for brief")
     prompt: Optional[str] = Field("", description="Alternative prompt field")
+    content: Optional[str] = Field("", description="Alternative content field")
     context: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional project context")
+    callback_url: Optional[str] = Field(None, description="Optional callback URL")
+    pm_endpoint: Optional[str] = Field(None, description="Optional PM endpoint")
+    pm_token: Optional[str] = Field(None, description="Optional PM token")
 
 
 class SRSGenerateRequest(BaseModel):
@@ -194,10 +202,14 @@ def create_task(payload: TaskRequest, _auth: bool = Depends(verify_token)) -> Di
     text_content = (
         task_dict.get("description")
         or task_dict.get("requirements")
+        or task_dict.get("brief")
         or task_dict.get("prompt")
+        or task_dict.get("content")
         or ""
     )
     task_dict["description"] = text_content
+    if not task_dict.get("project_name") and task_dict.get("title"):
+        task_dict["project_name"] = task_dict.get("title")
 
     try:
         logger.info(f"Task initiated: '{task_dict.get('project_name')}'")

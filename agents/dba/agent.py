@@ -705,7 +705,12 @@ class DBAAgent:
 
         return "\n".join(lines)
 
-    def run(self, input_text_or_path: str) -> Dict[str, Any]:
+    def run(
+        self,
+        input_text_or_path: str,
+        pm_endpoint: Optional[str] = None,
+        pm_token: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Main execution method of DBAAgent.
         
         Takes SRS text or file path, runs end-to-end database design,
@@ -777,7 +782,7 @@ class DBAAgent:
         logger.info("DBAAgent: Successfully generated all %d mandatory artifacts.", len(saved_artifacts))
 
         # Auto-push generated database artifacts to PM Agent machine (Zero shared folder)
-        pm_push_report = self.push_artifacts_to_pm()
+        pm_push_report = self.push_artifacts_to_pm(pm_endpoint=pm_endpoint, pm_token=pm_token)
 
         return {
             "status": "SUCCESS" if validation_results["all_passed"] else "WARNING",
